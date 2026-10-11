@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Жребий Доты — случайный герой и сборка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Russo+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#131c26; --panel:#1c2937; --panel2:#233344; --line:#364b60;
+  --text:#ebe5d6; --muted:#9aa8b6; --gold:#e3b45c; --gold-ink:#241705;
+  --s:#e8624a; --a:#55bd72; --i:#4fa6ee; --u:#bb8de6; --chaos:#e45bd6;
+  --accent:var(--gold);
+  --display:"Russo One","Arial Black",Impact,sans-serif;
+  --body:"Golos Text","Segoe UI",Roboto,Arial,sans-serif;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#e6ebef; --panel:#ffffff; --panel2:#eef2f5; --line:#c3cfda;
+    --text:#1a2530; --muted:#566676; --gold:#b67d14; --gold-ink:#241705;
+    --s:#c9432c; --a:#2f8f4b; --i:#1f78c8; --u:#8a52bd; --chaos:#b8239f;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#e6ebef; --panel:#ffffff; --panel2:#eef2f5; --line:#c3cfda;
+  --text:#1a2530; --muted:#566676; --gold:#b67d14; --gold-ink:#241705;
+  --s:#c9432c; --a:#2f8f4b; --i:#1f78c8; --u:#8a52bd; --chaos:#b8239f;
+}
+:root[data-theme="dark"]{
+  --bg:#131c26; --panel:#1c2937; --panel2:#233344; --line:#364b60;
+  --text:#ebe5d6; --muted:#9aa8b6; --gold:#e3b45c;
+}
+*,*::before,*::after{box-sizing:inherit}
+[hidden]{display:none!important}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; min-height:100%;
+  background:
+    radial-gradient(900px 520px at 15% -8%, color-mix(in srgb,var(--accent) 20%,transparent), transparent 70%),
+    radial-gradient(700px 480px at 100% 100%, color-mix(in srgb,var(--accent) 10%,transparent), transparent 70%),
+    var(--bg);
+  background-color:var(--bg);
+  color:var(--text);
+  font-family:var(--body); font-size:16px; line-height:1.5;
+  transition:background .5s;
+  overflow-x:hidden;
+}
+body[data-attr="s"]{--accent:var(--s)}
+body[data-attr="a"]{--accent:var(--a)}
+body[data-attr="i"]{--accent:var(--i)}
+body[data-attr="u"]{--accent:var(--u)}
+body[data-attr=""][data-mode="chaos"]{--accent:var(--chaos)}
+
+/* ---------- background paraphernalia ---------- */
+.bg{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+.bg .sym{fill:none;stroke:var(--accent);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;opacity:.2}
+.bg .sym.dim{opacity:.12}
+.bg .lane{fill:none;stroke:var(--accent);opacity:.14;stroke-width:2;stroke-dasharray:3 14;stroke-linecap:round}
+.bg .river{fill:none;stroke:var(--accent);opacity:.05;stroke-width:110;stroke-linecap:round}
+.bg .anc{fill:var(--accent);opacity:.07}
+.bg .anc2{fill:none;stroke:var(--accent);opacity:.2;stroke-width:2;stroke-linejoin:round}
+.fl{transform-box:fill-box;transform-origin:center;animation:bob 9s ease-in-out infinite}
+.fl.b{animation-duration:12s;animation-delay:-4s}
+.fl.c{animation-duration:7s;animation-delay:-2s}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-14px) rotate(3deg)}}
+body[data-mode="chaos"] .fl{animation-duration:3.2s}
+
+.wrap{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:28px 20px 56px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(2rem,5vw,3.2rem);line-height:1;margin:0;letter-spacing:.01em}
+.sub{margin:8px 0 0;color:var(--muted);max-width:50ch}
+.hright{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.patch{
+  font-size:.82rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--panel);
+}
+.patch b{color:var(--text);font-weight:600}
+.theme{
+  font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:8px 14px;cursor:pointer;
+}
+.theme:hover{border-color:var(--gold)}
+
+/* mode switch */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.mode{
+  font:inherit;text-align:left;color:var(--text);cursor:pointer;
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px;
+  display:grid;gap:2px;transition:border-color .15s,background .15s;
+}
+.mode b{font-family:var(--display);font-weight:400;font-size:1.15rem;letter-spacing:.01em}
+.mode span{color:var(--muted);font-size:.9rem}
+.mode:hover{border-color:var(--gold)}
+.mode[aria-pressed="true"]{
+  border-color:var(--mc);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--mc) 18%,var(--panel)),var(--panel));
+  box-shadow:inset 0 3px 0 var(--mc);
+}
+.mode.meta{--mc:var(--gold)}
+.mode.chaos{--mc:var(--chaos)}
+
+/* filters */
+.filters{display:grid;gap:12px;margin-bottom:22px}
+.fgroup{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.flabel{color:var(--muted);font-size:.9rem;min-width:84px}
+.chip{
+  font:inherit;font-size:.92rem;color:var(--text);background:var(--panel);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:background .15s,border-color .15s;
+}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--c,var(--gold));display:inline-block}
+.chip:hover{border-color:var(--c,var(--gold))}
+.chip[aria-pressed="true"]{
+  background:color-mix(in srgb,var(--c,var(--gold)) 22%,var(--panel));
+  border-color:var(--c,var(--gold));
+}
+.chip.pinned{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,var(--panel))}
+.chip:focus-visible,.btn:focus-visible,.theme:focus-visible,.mode:focus-visible,.mini:focus-visible,
+.hist button:focus-visible,.pick:focus-visible,.saved button:focus-visible,.dlg input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* stage */
+.stage{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:stretch}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;
+  position:relative;overflow:hidden;
+}
+.hero{
+  padding:26px 24px 22px;display:flex;flex-direction:column;min-height:480px;
+  border-top:4px solid var(--accent);
+  background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 14%,var(--panel)) 0%,var(--panel) 60%);
+}
+.mono{position:relative;flex:1;display:grid;place-items:center;min-height:220px}
+.mono svg.sigil{position:absolute;inset:0;width:100%;height:100%;opacity:.95}
+.mono .letters{
+  position:relative;font-family:var(--display);font-size:clamp(5rem,13vw,8.5rem);line-height:1;
+  color:transparent;-webkit-text-stroke:2px var(--accent);letter-spacing:.02em;
+  text-shadow:0 0 40px color-mix(in srgb,var(--accent) 45%,transparent);
+  user-select:none;
+}
+.hero.spinning .letters{filter:blur(1.5px);opacity:.8}
+.hname{
+  font-family:var(--display);font-size:clamp(1.7rem,3.4vw,2.4rem);line-height:1.08;margin:6px 0 4px;
+  overflow-wrap:anywhere;
+}
+.hmeta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--muted);font-size:.95rem}
+.tag{
+  border:1px solid var(--accent);color:var(--text);border-radius:4px;padding:2px 10px;font-size:.88rem;
+  background:color-mix(in srgb,var(--accent) 16%,transparent);
+}
+.tag.pos{border-color:var(--line);background:transparent;color:var(--muted)}
+.tag.pos.on{border-color:var(--gold);color:var(--text);background:color-mix(in srgb,var(--gold) 18%,transparent)}
+.hact{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.mini{
+  font:inherit;font-size:.88rem;color:var(--text);cursor:pointer;text-decoration:none;
+  background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:6px 12px;
+  display:inline-flex;align-items:center;gap:6px;
+}
+.mini:hover{border-color:var(--gold)}
+.mini[aria-pressed="true"]{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 18%,var(--panel2))}
+.mini[disabled]{opacity:.45;cursor:not-allowed}
+
+.build{padding:22px 24px 24px;min-height:480px}
+.empty{display:grid;place-items:center;text-align:center;height:100%;min-height:380px;color:var(--muted);padding:12px}
+.empty b{display:block;color:var(--text);font-family:var(--display);font-weight:400;font-size:1.4rem;margin-bottom:8px}
+.empty p{margin:0;max-width:34ch}
+.src{
+  display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 16px;padding:10px 12px;
+  border-radius:5px;border:1px solid var(--line);background:var(--panel2);font-size:.88rem;color:var(--muted);
+}
+.src .badge{
+  font-family:var(--display);font-size:.85rem;letter-spacing:.02em;color:var(--gold-ink);
+  background:var(--bc,var(--gold));padding:2px 10px;border-radius:3px;
+}
+.src.tpl{--bc:#9fb4c8}
+.src.chaos{--bc:var(--chaos)}
+.src a{color:var(--text)}
+.sec{margin-bottom:18px}
+.sec:last-child{margin-bottom:0}
+.sec h3{
+  margin:0 0 8px;font-size:.95rem;font-weight:600;color:var(--muted);
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+}
+.sec h3 small{font-weight:400;font-size:.82rem;opacity:.85}
+ul.items{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:8px}
+.item{
+  display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:5px;padding:6px 10px 6px 6px;min-width:0;
+}
+.glyph{
+  flex:none;width:38px;height:38px;border-radius:4px;display:grid;place-items:center;
+  font-family:var(--display);font-size:.95rem;letter-spacing:.02em;
+  background:linear-gradient(145deg,hsl(var(--h) 38% 34%),hsl(var(--h) 42% 20%));
+  color:hsl(var(--h) 70% 86%);border:1px solid hsl(var(--h) 40% 46%);
+}
+.iname{font-size:.92rem;line-height:1.2;overflow-wrap:anywhere;min-width:0;flex:1}
+.iname .tier{display:block;font-size:.76rem;color:var(--muted)}
+.iname .ench{display:block;font-size:.76rem;color:var(--gold)}
+.meta{flex:none;font-size:.78rem;color:var(--muted);text-align:right;white-space:nowrap}
+.core .item{border-color:color-mix(in srgb,var(--gold) 55%,var(--line))}
+.situ .item{opacity:.9}
+.skills{display:flex;flex-wrap:wrap;gap:6px}
+.sk{
+  display:flex;flex-direction:column;align-items:center;min-width:64px;padding:6px 8px;border-radius:5px;
+  background:var(--panel2);border:1px solid var(--line);font-size:.8rem;text-align:center;line-height:1.2;
+}
+.sk b{font-family:var(--display);font-weight:400;font-size:.9rem;color:var(--gold)}
+.sk.ult{border-color:var(--accent)}
+.sk.rk{min-width:42px}
+.tal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tal div{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px 8px 10px;text-align:center}
+.tal b{display:block;font-family:var(--display);font-weight:400;font-size:1.05rem;color:var(--gold)}
+.tal span{font-size:.84rem;color:var(--text);display:block;line-height:1.25}
+.tal em{font-style:normal;font-size:.76rem;color:var(--muted)}
+.quest{
+  margin-top:4px;padding:12px 14px;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--gold) 10%,transparent);
+  border-radius:0 5px 5px 0;font-size:.95rem
+}
+.quest.chaos{border-left-color:var(--chaos);background:color-mix(in srgb,var(--chaos) 12%,transparent)}
+.chaostitle{font-family:var(--display);font-size:1.25rem;margin:0 0 14px;color:var(--chaos);line-height:1.15}
+.build.chaos .item:nth-child(odd){transform:rotate(-1.1deg)}
+.build.chaos .item:nth-child(even){transform:rotate(1deg)}
+
+.build.reveal .sec,.build.reveal .src,.build.reveal .chaostitle{animation:rise .45s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--n,0) * 70ms)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* actions */
+.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:22px 0 8px}
+.btn{
+  font:inherit;cursor:pointer;border:0;color:var(--text);
+  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);
+  padding:12px 20px;border-radius:5px;transition:box-shadow .15s,transform .1s;
+}
+.btn:hover{box-shadow:inset 0 0 0 1px var(--gold)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn[hidden]{display:none}
+.btn.main{
+  font-family:var(--display);font-size:1.25rem;letter-spacing:.02em;
+  color:var(--gold-ink);padding:16px 38px;
+  background:linear-gradient(180deg,#f3cd7e,#d9a043);box-shadow:none;
+  clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+}
+body[data-mode="chaos"] .btn.main{background:linear-gradient(180deg,#f58be6,#d049bd);color:#2a0524}
+.btn.main:hover{filter:brightness(1.06);box-shadow:none}
+.btn.main:focus-visible{outline-offset:-7px;outline-color:var(--gold-ink)}
+.status{color:var(--muted);font-size:.92rem;min-height:1.4em;margin:0 0 6px}
+.hint{color:var(--muted);font-size:.82rem;margin:0}
+
+/* lists */
+.lists{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:28px}
+.lists h2{font-size:1rem;font-weight:600;color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.lists h2 button{font:inherit;font-size:.8rem;color:var(--muted);background:none;border:0;cursor:pointer;text-decoration:underline}
+.hist,.saved{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.hist{flex-direction:row;flex-wrap:wrap}
+.hist button{
+  font:inherit;font-size:.9rem;color:var(--text);cursor:pointer;background:var(--panel);
+  border:1px solid var(--line);border-left:4px solid var(--c);border-radius:4px;padding:6px 12px;
+}
+.hist button:hover{border-color:var(--c)}
+.none{color:var(--muted);font-size:.92rem}
+.saved li{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);
+  border-left:4px solid var(--c);border-radius:5px;padding:8px 12px;
+}
+.saved .sn{flex:1;min-width:140px;line-height:1.25}
+.saved .sn b{display:block;font-weight:600}
+.saved .sn small{color:var(--muted)}
+.saved button{
+  font:inherit;font-size:.84rem;color:var(--text);background:var(--panel2);border:1px solid var(--line);
+  border-radius:4px;padding:4px 10px;cursor:pointer;
+}
+.saved button:hover{border-color:var(--gold)}
+.saved button.del:hover{border-color:var(--s)}
+
+.foot{margin-top:34px;color:var(--muted);font-size:.82rem;max-width:76ch}
+.foot a{color:var(--text)}
+.toast{
+  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);z-index:30;
+  background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:.92rem;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;max-width:90vw;text-align:center;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* hero picker */
+dialog.dlg{
+  width:min(860px,94vw);max-height:86vh;padding:0;border:1px solid var(--line);border-radius:8px;
+  background:var(--panel);color:var(--text);overflow:hidden;
+}
+dialog.dlg::backdrop{background:rgba(6,10,15,.66)}
+.dlg form{display:flex;flex-direction:column;max-height:86vh}
+.dhead{display:flex;gap:10px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)}
+.dhead input{
+  flex:1;font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:10px 12px;min-width:0;
+}
+.dbody{overflow:auto;padding:6px 16px 18px}
+.dgroup h4{font-family:var(--display);font-weight:400;font-size:1rem;margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.dgroup h4 i{width:12px;height:12px;border-radius:50%;background:var(--c);display:inline-block}
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:6px}
+.pick{
+  font:inherit;font-size:.9rem;color:var(--text);cursor:pointer;text-align:left;
+  display:flex;align-items:center;gap:8px;padding:5px 8px 5px 5px;border-radius:5px;
+  background:var(--panel2);border:1px solid var(--line);min-width:0;
+}
+.pick:hover{border-color:var(--c)}
+.pick .glyph{width:30px;height:30px;font-size:.78rem}
+.pick span{overflow-wrap:anywhere;line-height:1.15;flex:1}
+.pick em{font-style:normal;color:var(--gold);font-size:.8rem}
+.dempty{color:var(--muted);padding:18px 0}
+
+@media (max-width:820px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+  .lists{grid-template-columns:minmax(0,1fr)}
+  .hero,.build{min-height:0}
+  .mono{min-height:180px}
+  .flabel{width:100%}
+  .btn.main{width:100%}
+  .tal{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .modes{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body data-attr="" data-mode="meta">
+
+<!-- ================= Dota-themed background ================= -->
+<svg class="bg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="s-haste" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><path d="M54 24 L38 54 H50 L44 76 L62 44 H50 Z"/></symbol>
+    <symbol id="s-dd" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><path d="M34 40 L50 28 L66 40 M34 56 L50 44 L66 56 M34 72 L50 60 L66 72"/></symbol>
+    <symbol id="s-ill" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><circle cx="42" cy="50" r="12"/><circle cx="58" cy="50" r="12"/></symbol>
+    <symbol id="s-reg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><path d="M50 32 V68 M32 50 H68"/></symbol>
+    <symbol id="s-arc" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><path d="M50 26 L57 43 L74 50 L57 57 L50 74 L43 57 L26 50 L43 43 Z"/></symbol>
+    <symbol id="s-inv" viewBox="0 0 100 100"><circle cx="50" cy="50" r="34"/><path d="M26 50 Q50 30 74 50 Q50 70 26 50 Z"/><circle cx="50" cy="50" r="6"/></symbol>
+    <symbol id="s-blink" viewBox="0 0 100 100"><path d="M50 6 L59 54 H41 Z"/><path d="M32 54 H68"/><path d="M50 54 V84"/><circle cx="50" cy="89" r="4"/></symbol>
+    <symbol id="s-rapier" viewBox="0 0 100 100"><path d="M50 4 L55 60 H45 Z"/><path d="M28 60 H72 M36 60 Q50 76 64 60"/><path d="M50 68 V86"/><circle cx="50" cy="91" r="4"/></symbol>
+    <symbol id="s-aegis" viewBox="0 0 100 100"><path d="M50 8 L84 20 V50 Q84 78 50 94 Q16 78 16 50 V20 Z"/><path d="M50 26 L66 50 L50 74 L34 50 Z"/></symbol>
+    <symbol id="s-boot" viewBox="0 0 100 100"><path d="M26 10 H56 V44 L80 54 Q90 58 90 70 V84 H20 V10 Z"/><path d="M20 68 H90"/></symbol>
+    <symbol id="s-ward" viewBox="0 0 100 100"><path d="M18 36 Q50 10 82 36 Q50 62 18 36 Z"/><circle cx="50" cy="36" r="9"/><path d="M50 62 V94"/></symbol>
+    <symbol id="s-leaf" viewBox="0 0 100 100"><path d="M18 84 Q12 30 72 16 Q86 64 30 86 Z"/><path d="M22 80 L64 32"/></symbol>
+    <symbol id="s-str" viewBox="0 0 100 100"><path d="M50 6 L88 28 V72 L50 94 L12 72 V28 Z"/><path d="M32 40 H68 M32 52 H68 M32 64 H58"/></symbol>
+    <symbol id="s-agi" viewBox="0 0 100 100"><path d="M50 6 L94 50 L50 94 L6 50 Z"/><path d="M50 28 V72 M34 46 L50 28 L66 46"/></symbol>
+    <symbol id="s-int" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42"/><path d="M50 18 L58 42 L82 50 L58 58 L50 82 L42 58 L18 50 L42 42 Z"/></symbol>
+    <symbol id="s-uni" viewBox="0 0 100 100"><path d="M50 6 L88 28 V72 L50 94 L12 72 V28 Z"/><circle cx="50" cy="50" r="18"/><path d="M50 32 V68 M32 50 H68"/></symbol>
+  </defs>
+
+  <path class="river" d="M-60 -60 C 500 300 1100 700 1660 1060"/>
+  <path class="lane" d="M0 1000 L1600 0"/>
+  <path class="lane" d="M40 40 L40 960 L1560 960"/>
+
+  <!-- ancients -->
+  <g class="anc"><polygon points="70,1000 100,925 128,925 138,880 152,820 166,880 176,925 204,925 234,1000"/></g>
+  <g class="anc2"><polygon points="70,1000 100,925 128,925 138,880 152,820 166,880 176,925 204,925 234,1000"/></g>
+  <g class="anc"><polygon points="1366,1000 1396,925 1424,925 1434,880 1448,820 1462,880 1472,925 1500,925 1530,1000"/></g>
+  <g class="anc2"><polygon points="1366,1000 1396,925 1424,925 1434,880 1448,820 1462,880 1472,925 1500,925 1530,1000"/></g>
+
+  <!-- attribute sigils -->
+  <g transform="rotate(-10 150 160)"><g class="fl"><use href="#s-str" class="sym dim" x="70" y="80" width="170" height="170"/></g></g>
+  <g transform="rotate(8 1450 170)"><g class="fl b"><use href="#s-agi" class="sym dim" x="1370" y="90" width="160" height="160"/></g></g>
+  <g transform="rotate(6 140 640)"><g class="fl c"><use href="#s-int" class="sym dim" x="60" y="560" width="160" height="160"/></g></g>
+  <g transform="rotate(-8 1460 760)"><g class="fl"><use href="#s-uni" class="sym dim" x="1370" y="670" width="180" height="180"/></g></g>
+
+  <!-- runes -->
+  <g class="fl b"><use href="#s-haste" class="sym" x="280" y="170" width="80" height="80"/></g>
+  <g class="fl c"><use href="#s-dd" class="sym" x="1230" y="300" width="74" height="74"/></g>
+  <g class="fl"><use href="#s-ill" class="sym" x="420" y="820" width="70" height="70"/></g>
+  <g class="fl b"><use href="#s-reg" class="sym" x="1170" y="860" width="74" height="74"/></g>
+  <g class="fl c"><use href="#s-arc" class="sym" x="880" y="30" width="64" height="64"/></g>
+  <g class="fl"><use href="#s-inv" class="sym" x="90" y="400" width="66" height="66"/></g>
+
+  <!-- items -->
+  <g transform="rotate(38 1520 430)"><g class="fl"><use href="#s-blink" class="sym" x="1450" y="360" width="140" height="140"/></g></g>
+  <g transform="rotate(-32 200 520)"><g class="fl b"><use href="#s-rapier" class="sym" x="110" y="440" width="170" height="170"/></g></g>
+  <g class="fl c"><use href="#s-aegis" class="sym" x="1300" y="560" width="120" height="120"/></g>
+  <g transform="rotate(-12 720 900)"><g class="fl"><use href="#s-boot" class="sym" x="660" y="850" width="100" height="100"/></g></g>
+  <g class="fl b"><use href="#s-ward" class="sym" x="600" y="30" width="86" height="86"/></g>
+  <g transform="rotate(20 1090 100)"><g class="fl c"><use href="#s-leaf" class="sym" x="1040" y="50" width="86" height="86"/></g></g>
+</svg>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Жребий Доты</h1>
+      <p class="sub">Случайный герой, позиция, предметы и таланты. Реальные сборки с D2PT или полный хаос на выбор.</p>
+    </div>
+    <div class="hright">
+      <span class="patch">Патч <b>7.41f</b> · данные D2PT, октябрь 2026</span>
+      <button class="theme" id="theme" type="button">Тема</button>
+    </div>
+  </header>
+
+  <section class="modes" aria-label="Режим сборки">
+    <button class="mode meta" id="mMeta" type="button" aria-pressed="true"><b>Мета · D2PT</b><span>Реальные сборки по матчам 7000+ MMR</span></button>
+    <button class="mode chaos" id="mChaos" type="button" aria-pressed="false"><b>Хаос</b><span>Любые предметы, случайные нейтралки и правило безумия</span></button>
+  </section>
+
+  <section class="filters" aria-label="Фильтры">
+    <div class="fgroup" id="fa"><span class="flabel">Атрибут</span></div>
+    <div class="fgroup" id="fp"><span class="flabel">Позиция</span></div>
+    <div class="fgroup" id="fh">
+      <span class="flabel">Герой</span>
+      <button class="chip" id="pickBtn" type="button">Выбрать героя</button>
+      <button class="chip pinned" id="unpin" type="button" hidden></button>
+      <button class="chip" id="exact" type="button" aria-pressed="false" title="Герои, для которых в сайт встроена точная сборка D2PT">Только точные сборки D2PT</button>
+    </div>
+  </section>
+
+  <main class="stage" id="stage">
+    <article class="card hero" id="hero" aria-live="polite">
+      <div class="mono">
+        <svg class="sigil" id="sigil" viewBox="0 0 300 300" aria-hidden="true"></svg>
+        <div class="letters" id="letters">?</div>
+      </div>
+      <div class="hname" id="hname">Кто сегодня?</div>
+      <div class="hmeta" id="hmeta"><span>Нажми кнопку, и судьба решит.</span></div>
+      <div class="hact" id="hact" hidden>
+        <button class="mini" id="saveBtn" type="button" aria-pressed="false">Сохранить сборку</button>
+        <button class="mini" id="pinBtn" type="button" aria-pressed="false">Оставить героя</button>
+        <a class="mini" id="d2pt" href="#" target="_blank" rel="noopener noreferrer">Открыть на D2PT</a>
+      </div>
+    </article>
+
+    <section class="card build" id="build" aria-label="Сборка">
+      <div class="empty"><div><b>Здесь появится сборка</b><p>Старт, ядро с минутами покупки, нейтральные предметы, прокачка и таланты.</p></div></div>
+    </section>
+  </main>
+
+  <div class="actions">
+    <button class="btn main" id="spin" type="button">Крутить</button>
+    <button class="btn" id="rebuild" type="button" disabled>Другая сборка</button>
+    <button class="btn" id="copy" type="button" disabled>Скопировать</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+  <p class="hint">Пробел тоже крутит.</p>
+
+  <div class="lists">
+    <section>
+      <h2><span>Последние броски</span></h2>
+      <ul class="hist" id="hist"></ul>
+    </section>
+    <section>
+      <h2><span>Мои сборки</span><button type="button" id="clearSaved" hidden>Очистить всё</button></h2>
+      <ul class="saved" id="saved"></ul>
+    </section>
+  </div>
+
+  <p class="foot">
+    Точные сборки (стартовые предметы, порядок и минуты покупки, прокачка, таланты, нейтральные предметы) взяты с <a href="https://dota2protracker.com/" target="_blank" rel="noopener noreferrer">dota2protracker.com</a>
+    для патча 7.41f, матчи 7000+ MMR. Они встроены для пяти героев: Sven, Outworld Destroyer, Enigma, Pudge и Winter Wyvern.
+    У остальных героев показано типичное ядро позиции, а полную сборку можно открыть кнопкой «Открыть на D2PT». Позиции героев приблизительные. Сохранённые сборки лежат только в этом браузере.
+  </p>
+</div>
+
+<dialog class="dlg" id="dlg" aria-label="Выбор героя">
+  <form method="dialog" id="dform">
+    <div class="dhead">
+      <input id="q" type="search" placeholder="Найти героя" autocomplete="off" aria-label="Поиск героя">
+      <button class="mini" value="close" type="submit">Закрыть</button>
+    </div>
+    <div class="dbody" id="dbody"></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= данные ================= */
+  var ATTR = {
+    s:{name:"Сила",css:"var(--s)"},
+    a:{name:"Ловкость",css:"var(--a)"},
+    i:{name:"Интеллект",css:"var(--i)"},
+    u:{name:"Универсал",css:"var(--u)"}
+  };
+  var POS = {1:"Керри",2:"Мид",3:"Оффлейн",4:"Софт-саппорт",5:"Хард-саппорт"};
+
+  var RAW =
+  "Abaddon|s|45;Alchemist|s|1;Axe|s|3;Beastmaster|s|3;Brewmaster|s|3;Bristleback|s|3;Centaur Warrunner|s|3;Chaos Knight|s|1;Clockwerk|s|34;Dawnbreaker|s|3;Doom|s|3;Dragon Knight|s|23;Earth Spirit|s|4;Earthshaker|s|4;Elder Titan|s|4;Huskar|s|2;Kunkka|s|23;Largo|s|345;Legion Commander|s|3;Lifestealer|s|1;Lycan|s|13;Mars|s|3;Night Stalker|s|3;Ogre Magi|s|45;Omniknight|s|35;Primal Beast|s|3;Pudge|s|34;Sand King|s|34;Slardar|s|3;Spirit Breaker|s|34;Sven|s|1;Tidehunter|s|3;Timbersaw|s|3;Tiny|s|24;Treant Protector|s|45;Tusk|s|4;Underlord|s|3;Undying|s|5;Wraith King|s|1;" +
+  "Anti-Mage|a|1;Arc Warden|a|12;Bloodseeker|a|1;Bounty Hunter|a|4;Broodmother|a|3;Clinkz|a|1;Drow Ranger|a|1;Ember Spirit|a|2;Faceless Void|a|1;Gyrocopter|a|1;Hoodwink|a|4;Juggernaut|a|1;Kez|a|1;Lone Druid|a|3;Luna|a|1;Medusa|a|1;Meepo|a|2;Mirana|a|4;Monkey King|a|14;Morphling|a|1;Naga Siren|a|1;Nyx Assassin|a|4;Pangolier|a|3;Phantom Assassin|a|1;Phantom Lancer|a|1;Razor|a|13;Riki|a|1;Shadow Fiend|a|2;Slark|a|1;Sniper|a|12;Spectre|a|1;Templar Assassin|a|2;Terrorblade|a|1;Troll Warlord|a|1;Ursa|a|1;Vengeful Spirit|a|5;Venomancer|a|34;Viper|a|23;Weaver|a|1;" +
+  "Ancient Apparition|i|5;Crystal Maiden|i|5;Dazzle|i|5;Death Prophet|i|2;Disruptor|i|45;Enchantress|i|4;Grimstroke|i|45;Jakiro|i|5;Keeper of the Light|i|2;Leshrac|i|2;Lich|i|5;Lina|i|12;Lion|i|45;Muerta|i|1;Nature's Prophet|i|14;Necrophos|i|23;Oracle|i|5;Outworld Destroyer|i|2;Puck|i|2;Pugna|i|2;Queen of Pain|i|2;Ringmaster|i|45;Rubick|i|4;Shadow Demon|i|45;Shadow Shaman|i|5;Silencer|i|45;Skywrath Mage|i|45;Storm Spirit|i|2;Techies|i|45;Tinker|i|2;Visage|i|3;Warlock|i|5;Winter Wyvern|i|5;Witch Doctor|i|5;Zeus|i|2;" +
+  "Bane|u|5;Batrider|u|3;Chen|u|5;Dark Seer|u|3;Dark Willow|u|4;Enigma|u|3;Invoker|u|2;Io|u|5;Magnus|u|34;Marci|u|3;Phoenix|u|4;Snapfire|u|45;Void Spirit|u|2;Windranger|u|24";
+
+  var HEROES = RAW.split(";").map(function(r){
+    var p = r.split("|");
+    return {name:p[0], attr:p[1], pos:p[2].split("").map(Number)};
+  });
+  var BYNAME = {}; HEROES.forEach(function(h){BYNAME[h.name]=h});
+
+  /* ---- Точные сборки D2PT, патч 7.41f (матчи 7000+ MMR) ---- */
+  var PRO = {
+    "Sven":{pos:1,matches:7972,wr:52.7,rating:83,
+      start:["Quelling Blade","Iron Branch ×2","Magic Stick","Tango ×3","Faerie Fire"],
+      core:[["Power Treads",5],["Morbid Mask",8],["Mask of Madness",10],["Echo Sabre",14],["Blink Dagger",17],["Black King Bar",23],["Crystalys",24],["Daedalus",27],["Harpoon",29]],
+      flex:[["Swift Blink",58],["Satanic",47],["Magic Wand",42],["Aghanim's Shard",27],["Monkey King Bar",25],["Bracer",17]],
+      skills:["Storm Hammer","Warcry","Great Cleave","Great Cleave","Great Cleave","God's Strength","Great Cleave","Storm Hammer","Storm Hammer","Storm Hammer"],
+      talents:[[10,"+5 с длительности Warcry",82],[15,"−12 с перезарядки God's Strength",76],[20,"+8 брони от Warcry",80],[25,"+50% урона God's Strength",82]],
+      neutrals:[["Possessed Mask","Tough"],["Defiant Shell","Tough"],["Serrated Shiv","Tough"],["Giant's Maul","Tough"],["Stygian Desolator","Evolved"]]},
+    "Outworld Destroyer":{pos:2,matches:8181,wr:53.0,rating:79,
+      start:["Mantle of Intelligence","Iron Branch ×2","Circlet","Observer Ward","Tango ×3","Faerie Fire"],
+      core:[["Null Talisman",2],["Magic Wand",4],["Power Treads",8],["Witch Blade",17],["Force Staff",20],["Blink Dagger",21],["Hurricane Pike",25]],
+      flex:[["Parasma",43],["Scythe of Vyse",43],["Black King Bar",38],["Aghanim's Scepter",27],["Meteor Hammer",18],["Dragon Lance",12]],
+      skills:["Astral Imprisonment","Arcane Orb","Astral Imprisonment","Objurgation","Astral Imprisonment","Sanity's Eclipse","Astral Imprisonment","Arcane Orb","Arcane Orb","Arcane Orb"],
+      talents:[[10,"+200 маны",69],[15,"+0,8% текущей маны к скорости",87],[20,"−10 с перезарядки Objurgation",75],[25,"−60 с перезарядки Sanity's Eclipse",55]],
+      neutrals:[["Duelist Gloves","Quickened"],["Essence Ring","Quickened"],["Gunpowder Gauntlet","Quickened"],["Conjurer's Catalyst","Quickened"],["Divine Regalia","Evolved"]]},
+    "Enigma":{pos:3,matches:3776,wr:56.0,rating:87,
+      start:["Iron Branch ×2","Ring of Regen","Magic Stick","Tango ×3"],
+      core:[["Drum of Endurance",6],["Magic Wand",6],["Tranquil Boots",8],["Blink Dagger",14],["Aghanim's Shard",17],["Black King Bar",25]],
+      flex:[["Aghanim's Scepter",49],["Boots of Bearing",30],["Octarine Core",28],["Soul Ring",23],["Refresher Orb",15],["Shiva's Guard",15]],
+      skills:["Demonic Summoning","Malefice","Demonic Summoning","Malefice","Demonic Summoning","Black Hole","Demonic Summoning","Malefice","Malefice","Midnight Pulse"],
+      talents:[[10,"+10 скорости атаки Eidolon",71],[15,"+250 здоровья",92],[20,"+30 урона Eidolon",84],[25,"+4 Eidolon",72]],
+      neutrals:[["Ash Legion Shield","Mystical"],["Mana Draught","Greedy"],["Partisan's Brand","Greedy"],["Conjurer's Catalyst","Timeless"],["Dezun Bloodrite","Timeless"]]},
+    "Pudge":{pos:4,matches:5480,wr:49.6,rating:55,
+      start:["Boots of Speed","Ward Dispenser","Blood Grenade"],
+      core:[["Tranquil Boots",6],["Magic Wand",8],["Blink Dagger",19]],
+      flex:[["Aether Lens",33],["Eul's Scepter of Divinity",21],["Glimmer Cape",20],["Black King Bar",19],["Aghanim's Scepter",15],["Force Staff",13]],
+      skills:["Meat Hook","Rot","Rot","Flesh Heap","Rot","Dismember","Rot","Flesh Heap","Flesh Heap","Flesh Heap"],
+      talents:[[10,"+5 брони",72],[15,"+150 урона Meat Hook",86],[20,"+0,75 с длительности Dismember",58],[25,"×1,5 урон и лечение Dismember",56]],
+      neutrals:[["Chipped Vest","Brawny"],["Tumbler's Toy","Greedy"],["Cloak of Flames","Greedy"],["Conjurer's Catalyst","Brawny"],["Fallen Sky","Evolved"]]},
+    "Winter Wyvern":{pos:5,matches:6843,wr:53.2,rating:100,
+      start:["Iron Branch ×2","Magic Stick","Sentry Ward","Tango ×3","Faerie Fire","Blood Grenade"],
+      core:[["Magic Wand",8],["Arcane Boots",13],["Blink Dagger",22]],
+      flex:[["Glimmer Cape",49],["Force Staff",27],["Aghanim's Shard",12],["Aether Lens",10],["Aeon Disk",9],["Eul's Scepter of Divinity",7]],
+      skills:["Arctic Burn","Cold Embrace","Arctic Burn","Splinter Blast","Arctic Burn","Winter's Curse","Arctic Burn","Arctic Burn","Splinter Blast","Splinter Blast"],
+      talents:[[10,"+15 лечения Cold Embrace в секунду",57],[15,"+175 радиуса Splinter Blast",52],[20,"+100 урона Splinter Blast",69],[25,"Стан 1 с у Splinter Blast",86]],
+      neutrals:[["Dormant Curio","Quickened"],["Searing Signet","Greedy"],["Psychic Headband","Greedy"],["Conjurer's Catalyst","Keen-eyed"],["Book of the Dead","Timeless"]]}
+  };
+
+  /* ---- Типичное ядро позиции (по данным D2PT выше) ---- */
+  var TPL = {
+    1:{start:["Quelling Blade","Iron Branch ×2","Magic Stick","Tango ×3","Faerie Fire"],
+       core:[["Power Treads",5],["Magic Wand",6],["Blink Dagger",17],["Black King Bar",23]],
+       flex:["Daedalus","Satanic","Monkey King Bar","Butterfly","Silver Edge","Assault Cuirass","Swift Blink","Moon Shard","Nullifier","Bloodthorn","Manta Style","Shadow Blade"],
+       neutrals:[["Possessed Mask","Tough"],["Defiant Shell","Tough"],["Serrated Shiv","Tough"],["Giant's Maul","Tough"],["Stygian Desolator","Evolved"]]},
+    2:{start:["Mantle of Intelligence","Iron Branch ×2","Circlet","Observer Ward","Tango ×3","Faerie Fire"],
+       core:[["Null Talisman",2],["Magic Wand",4],["Power Treads",8],["Blink Dagger",21]],
+       flex:["Force Staff","Hurricane Pike","Witch Blade","Black King Bar","Aghanim's Scepter","Scythe of Vyse","Parasma","Meteor Hammer","Linken's Sphere","Orchid Malevolence","Octarine Core","Refresher Orb","Aether Lens"],
+       neutrals:[["Duelist Gloves","Quickened"],["Essence Ring","Quickened"],["Gunpowder Gauntlet","Quickened"],["Conjurer's Catalyst","Quickened"],["Divine Regalia","Evolved"]]},
+    3:{start:["Iron Branch ×2","Ring of Regen","Magic Stick","Tango ×3"],
+       core:[["Magic Wand",6],["Phase Boots",8],["Blink Dagger",14],["Black King Bar",25]],
+       flex:["Drum of Endurance","Aghanim's Scepter","Aghanim's Shard","Shiva's Guard","Pipe of Insight","Blade Mail","Lotus Orb","Octarine Core","Spirit Vessel","Guardian Greaves","Mekansm","Boots of Bearing","Assault Cuirass","Refresher Orb"],
+       neutrals:[["Ash Legion Shield","Mystical"],["Mana Draught","Greedy"],["Partisan's Brand","Greedy"],["Conjurer's Catalyst","Timeless"],["Dezun Bloodrite","Timeless"]]},
+    4:{start:["Boots of Speed","Ward Dispenser","Blood Grenade"],
+       core:[["Tranquil Boots",6],["Magic Wand",8],["Blink Dagger",19]],
+       flex:["Aether Lens","Glimmer Cape","Eul's Scepter of Divinity","Force Staff","Black King Bar","Aghanim's Scepter","Urn of Shadows","Lotus Orb","Spirit Vessel","Solar Crest","Rod of Atos","Ghost Scepter","Orchid Malevolence","Holy Locket","Guardian Greaves","Mekansm","Pavise","Essence Distiller","Consecrated Wraps"],
+       neutrals:[["Chipped Vest","Brawny"],["Tumbler's Toy","Greedy"],["Cloak of Flames","Greedy"],["Conjurer's Catalyst","Brawny"],["Fallen Sky","Evolved"]]},
+    5:{start:["Iron Branch ×2","Magic Stick","Sentry Ward","Tango ×3","Faerie Fire","Blood Grenade"],
+       core:[["Magic Wand",8],["Arcane Boots",13],["Blink Dagger",22],["Glimmer Cape",28]],
+       flex:["Force Staff","Aghanim's Shard","Aether Lens","Aeon Disk","Eul's Scepter of Divinity","Lotus Orb","Holy Locket","Guardian Greaves","Mekansm","Solar Crest","Urn of Shadows","Octarine Core","Refresher Orb","Pavise"],
+       neutrals:[["Dormant Curio","Quickened"],["Searing Signet","Greedy"],["Psychic Headband","Greedy"],["Conjurer's Catalyst","Keen-eyed"],["Book of the Dead","Timeless"]]}
+  };
+
+  /* ---- Пулы для режима «Хаос» (предметы, встречавшиеся в D2PT 7.41f) ---- */
+  var ITEMS_ALL = ["Blink Dagger","Overwhelming Blink","Swift Blink","Arcane Blink","Aether Lens","Eul's Scepter of Divinity","Glimmer Cape","Black King Bar","Aghanim's Scepter","Aghanim's Shard","Force Staff","Hurricane Pike","Urn of Shadows","Spirit Vessel","Lotus Orb","Bracer","Soul Ring","Essence Distiller","Blade Mail","Pipe of Insight","Consecrated Wraps","Shiva's Guard","Drum of Endurance","Wind Waker","Null Talisman","Crella's Crozier","Hydra's Breath","Rod of Atos","Hand of Midas","Scythe of Vyse","Ghost Scepter","Daedalus","Echo Sabre","Mask of Madness","Crystalys","Harpoon","Satanic","Monkey King Bar","Assault Cuirass","Butterfly","Silver Edge","Divine Rapier","Shadow Blade","Moon Shard","Nullifier","Bloodthorn","Witch Blade","Parasma","Meteor Hammer","Dragon Lance","Kaya","Yasha and Kaya","Yasha","Linken's Sphere","Refresher Orb","Manta Style","Octarine Core","Vladmir's Offering","Aeon Disk","Orchid Malevolence","Holy Locket","Guardian Greaves","Mekansm","Solar Crest","Pavise","Magic Wand"];
+  var BOOTS_ALL = ["Power Treads","Phase Boots","Arcane Boots","Tranquil Boots","Boots of Bearing","Boots of Travel","Boots of Speed"];
+  var START_ALL = ["Tango","Faerie Fire","Iron Branch","Quelling Blade","Magic Stick","Observer Ward","Sentry Ward","Blood Grenade","Ward Dispenser","Circlet","Mantle of Intelligence","Gauntlets of Strength","Slippers of Agility","Ring of Regen","Boots of Speed"];
+
+  var NEUTRAL = [
+    ["Chipped Vest","Ash Legion Shield","Dormant Curio","Pollywog Charm","Kobold Cup","Stonefeather Satchel","Forager's Kit","Possessed Mask","Weighted Dice","Duelist Gloves"],
+    ["Tumbler's Toy","Mana Draught","Essence Ring","Poor Man's Shield","Searing Signet","Crippling Crossbow","Defiant Shell","Medallion of Courage","Duelist Gloves","Dormant Curio"],
+    ["Cloak of Flames","Psychic Headband","Jidi Pollen Bag","Stormcrafter","Partisan's Brand","Unrelenting Eye","Serrated Shiv","Gunpowder Gauntlet","Spellslinger","Defiant Shell"],
+    ["Conjurer's Catalyst","Rattlecage","Prophet's Pendulum","Dandelion Amulet","Cloak of Flames","Enchanter's Bauble","Idol of Scree'Auk","Giant's Maul","Flayer's Bota","Metamorphic Mandible"],
+    ["Fallen Sky","Book of the Dead","Minotaur Horn","Spider Legs","Dezun Bloodrite","Witchbane","Stygian Desolator","Divine Regalia","Conjurer's Catalyst","Enchanter's Bauble"]
+  ];
+  var ENCH = [
+    ["Brawny","Quickened","Vital","Tough","Mystical","Alert"],
+    ["Greedy","Brawny","Quickened","Tough","Crude","Mystical","Keen-eyed"],
+    ["Greedy","Brawny","Quickened","Tough","Crude","Mystical","Keen-eyed"],
+    ["Brawny","Timeless","Quickened","Tough","Crude","Mystical","Keen-eyed"],
+    ["Evolved","Timeless","Hulking","Fleetfooted","Vampiric","Feverish"]
+  ];
+
+  var QUESTS = [
+    "Ни одной смерти до 10-й минуты.",
+    "Возьми Рошана до 25-й минуты.",
+    "Если всё идёт слишком хорошо, купи Divine Rapier.",
+    "Не возвращайся на базу до 8-й минуты.",
+    "Подбери каждую руну на своей половине карты.",
+    "Убей вражеского героя первым.",
+    "Ни одного сообщения в чат за всю игру.",
+    "Победи, не купив Town Portal Scroll до 15-й минуты.",
+    "Снеси первую вышку раньше 12-й минуты.",
+    "Сходи на ганг в первые 5 минут.",
+    "Забери Аегис и не дай его потерять."
+  ];
+  var RULES = [
+    "Покупай предметы строго по порядку списка, даже если они бесполезны.",
+    "Каждые 5 минут меняй линию.",
+    "Не используй ультимейт до 20-й минуты.",
+    "Играй так, будто у тебя нет мини-карты.",
+    "Ботинки покупай последними.",
+    "В чат пиши только вопросы.",
+    "Прокачивай способности строго по списку, не глядя на ситуацию.",
+    "Не покупай Town Portal Scroll до 12-й минуты.",
+    "Каждую смерть сопровождай тостом за честную игру.",
+    "Если в слоте оказался Divine Rapier, носи его до конца.",
+    "Первый килл обязан быть на Рошане или рядом с ним.",
+    "Ни одной руны не пропускать."
+  ];
+  var CH_ADJ = ["Лесной","Безумный","Бесстрашный","Хитрый","Подозрительный","Огненный","Лягушачий","Проклятый"];
+  var CH_NOUN = ["рейд","заскок","марафон","замес","побег","сквад","рандом"];
+  var SPIN_MSG = ["Рошан думает…","Бросаем руны…","Консультируемся с Аегисом…","Мешаем предметы в лавке…","Идёт отсчёт руны…"];
+
+  /* ================= утилиты ================= */
+  var $ = function(id){return document.getElementById(id)};
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function rnd(n){return Math.floor(Math.random()*n)}
+  function pick(a){return a[rnd(a.length)]}
+  function sample(a,n,exclude){
+    var c = a.filter(function(x){return !exclude || exclude.indexOf(x)<0});
+    for(var i=c.length-1;i>0;i--){var j=rnd(i+1);var t=c[i];c[i]=c[j];c[j]=t}
+    return c.slice(0,n);
+  }
+  function hue(s){var h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))%360}return h}
+  function ini(name){
+    var w = name.replace(/['’]/g,"").split(/[\s-]+/).filter(Boolean);
+    var s = w.length>1 ? w[0][0]+w[1][0] : name.slice(0,2);
+    return s.toUpperCase();
+  }
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+  function itemHTML(name,o){
+    o = o||{};
+    var base = name.replace(/ ×\d+$/,"");
+    return '<li class="item" style="--h:'+hue(base)+'"><span class="glyph">'+ini(base)+'</span><span class="iname">'+
+      (o.tier?'<span class="tier">'+o.tier+'</span>':'')+esc(name)+
+      (o.ench?'<span class="ench">+ '+esc(o.ench)+'</span>':'')+'</span>'+
+      (o.meta?'<span class="meta">'+esc(o.meta)+'</span>':'')+'</li>';
+  }
+  function d2ptUrl(name){
+    return "https://dota2protracker.com/hero/"+encodeURIComponent(name).replace(/%20/g,"+");
+  }
+
+  /* ================= состояние ================= */
+  var selA = {}, selP = {};
+  var mode = "meta", exactOnly = false;
+  var pinned = null;
+  var current = null, busy = false, history = [], saved = [];
+
+  function load(key){
+    try{ var v = JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; }
+  }
+  function store(key,val){
+    try{ localStorage.setItem(key,JSON.stringify(val)); }catch(e){}
+  }
+  history = load("dota-roll-history-v2").slice(0,10);
+  saved = load("dota-saved-builds-v1").slice(0,50);
+
+  /* ================= фильтры ================= */
+  function makeChip(parent,label,color,onToggle){
+    var b = document.createElement("button");
+    b.type="button"; b.className="chip"; b.setAttribute("aria-pressed","false");
+    if(color) b.style.setProperty("--c",color);
+    b.innerHTML = (color?'<i></i>':'')+label;
+    b.addEventListener("click",function(){
+      var on = b.getAttribute("aria-pressed")!=="true";
+      b.setAttribute("aria-pressed",on?"true":"false");
+      onToggle(on); setStatus("");
+    });
+    parent.appendChild(b);
+  }
+  Object.keys(ATTR).forEach(function(k){
+    makeChip($("fa"),ATTR[k].name,ATTR[k].css,function(on){selA[k]=on});
+  });
+  Object.keys(POS).forEach(function(k){
+    makeChip($("fp"),k+" · "+POS[k],"var(--gold)",function(on){selP[k]=on});
+  });
+  $("exact").addEventListener("click",function(){
+    exactOnly = this.getAttribute("aria-pressed")!=="true";
+    this.setAttribute("aria-pressed",exactOnly?"true":"false");
+    if(exactOnly) { pinned = null; updatePinUI(); }
+    setStatus("");
+  });
+
+  function selPosList(){ return Object.keys(selP).filter(function(k){return selP[k]}).map(Number); }
+  function selAttrList(){ return Object.keys(selA).filter(function(k){return selA[k]}); }
+
+  function pool(){
+    var as = selAttrList(), ps = selPosList();
+    return HEROES.filter(function(h){
+      if(as.length && as.indexOf(h.attr)<0) return false;
+      if(exactOnly && mode==="meta"){
+        var p = PRO[h.name];
+        if(!p) return false;
+        if(ps.length && ps.indexOf(p.pos)<0) return false;
+        return true;
+      }
+      if(ps.length && !h.pos.some(function(p){return ps.indexOf(p)>=0})) return false;
+      return true;
+    });
+  }
+  function choosePos(h){
+    var ps = selPosList();
+    if(mode==="chaos") return ps.length ? pick(ps) : 1+rnd(5);
+    if(PRO[h.name] && (!ps.length || ps.indexOf(PRO[h.name].pos)>=0)) return PRO[h.name].pos;
+    if(pinned && ps.length) return pick(ps);
+    var opts = ps.length ? h.pos.filter(function(p){return ps.indexOf(p)>=0}) : h.pos;
+    return pick(opts.length?opts:h.pos);
+  }
+
+  /* ================= режимы ================= */
+  function setMode(m){
+    mode = m;
+    document.body.setAttribute("data-mode",m);
+    $("mMeta").setAttribute("aria-pressed",m==="meta"?"true":"false");
+    $("mChaos").setAttribute("aria-pressed",m==="chaos"?"true":"false");
+    $("exact").hidden = (m==="chaos");
+    setStatus(m==="chaos" ? "Хаос: предметы и нейтралки выпадают случайно. Нажми «Крутить»." : "");
+  }
+  $("mMeta").addEventListener("click",function(){setMode("meta")});
+  $("mChaos").addEventListener("click",function(){setMode("chaos")});
+
+  /* ================= генерация сборок ================= */
+  function genMeta(h,pos){
+    var p = PRO[h.name];
+    if(p && p.pos===pos){
+      return {kind:"pro",hero:h.name,pos:pos,matches:p.matches,wr:p.wr,rating:p.rating,
+        start:p.start,core:p.core,flex:p.flex,skills:p.skills,talents:p.talents,neutrals:p.neutrals,quest:pick(QUESTS)};
+    }
+    var T = TPL[pos];
+    return {kind:"tpl",hero:h.name,pos:pos,start:T.start,core:T.core,flex:sample(T.flex,5),skills:null,talents:null,neutrals:T.neutrals,quest:pick(QUESTS)};
+  }
+  function genChaos(h,pos){
+    var skills = [];
+    for(var l=1;l<=10;l++){ skills.push(l===6?"R":pick(["Q","W","E"])); }
+    return {
+      kind:"chaos",hero:h.name,pos:pos,
+      title:pick(CH_ADJ)+" "+pick(CH_NOUN),
+      start:sample(START_ALL,4),
+      items:sample(ITEMS_ALL,6),
+      boots:pick(BOOTS_ALL),
+      neutrals:NEUTRAL.map(function(t,i){return [pick(t),pick(ENCH[i])]}),
+      skills:skills,
+      talents:[10,15,20,25].map(function(l){return [l,rnd(2)?"Правый":"Левый"]}),
+      rule:pick(RULES)
+    };
+  }
+  function genBuild(h,pos){ return mode==="chaos" ? genChaos(h,pos) : genMeta(h,pos); }
+
+  /* ================= отрисовка героя ================= */
+  var sigilPaths = {
+    s:'<polygon points="150,14 276,86 276,214 150,286 24,214 24,86" />',
+    a:'<polygon points="150,10 288,150 150,290 12,150" />',
+    i:'<circle cx="150" cy="150" r="136" />',
+    u:'<polygon points="150,12 270,70 288,200 200,288 100,288 12,200 30,70" />',
+    "":'<circle cx="150" cy="150" r="136" />'
+  };
+  function drawSigil(attr){
+    var shape = sigilPaths[attr] || sigilPaths[""];
+    $("sigil").innerHTML =
+      '<g fill="none" stroke="var(--accent)" stroke-width="2" opacity=".55">'+shape+'</g>'+
+      '<g fill="var(--accent)" fill-opacity=".07" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 7" transform="translate(150 150) scale(.82) translate(-150 -150)">'+shape+'</g>';
+  }
+  function showHero(h,pos,spinning,msg){
+    document.body.setAttribute("data-attr",h?h.attr:"");
+    $("hero").classList.toggle("spinning",!!spinning);
+    drawSigil(h?h.attr:"");
+    $("letters").textContent = h?ini(h.name):"?";
+    $("hname").textContent = h?h.name:"Кто сегодня?";
+    $("hact").hidden = !h || spinning;
+    if(!h || spinning){
+      $("hmeta").innerHTML = '<span>'+(spinning?(msg||"Крутим…"):"Нажми кнопку, и судьба решит.")+'</span>';
+      return;
+    }
+    var html = '<span class="tag">'+ATTR[h.attr].name+'</span>';
+    var list = h.pos.slice();
+    if(pos && list.indexOf(pos)<0) list.push(pos);
+    list.sort().forEach(function(p){
+      html += '<span class="tag pos'+(p===pos?' on':'')+'">'+p+' · '+POS[p]+'</span>';
+    });
+    $("hmeta").innerHTML = html;
+    $("d2pt").href = d2ptUrl(h.name);
+    updatePinUI();
+    updateSaveUI();
+  }
+
+  /* ================= отрисовка сборки ================= */
+  function section(n,title,small,cls,inner){
+    return '<div class="sec '+(cls||'')+'" style="--n:'+n+'"><h3>'+title+(small?'<small>'+small+'</small>':'')+'</h3>'+inner+'</div>';
+  }
+  function list(arr){return '<ul class="items">'+arr.join("")+'</ul>'}
+  function neutralsHTML(ns){
+    return '<ul class="items">'+ns.map(function(x,i){return itemHTML(x[0],{tier:"Тир "+(i+1),ench:x[1]})}).join("")+'</ul>';
+  }
+  function showBuild(b,animate){
+    var el = $("build");
+    var html = "", n = 0;
+    el.classList.toggle("chaos",b.kind==="chaos");
+
+    if(b.kind==="pro"){
+      html += '<div class="src" style="--n:'+(n++)+'"><span class="badge">D2PT · точная сборка</span>'+
+        '<span>Позиция '+b.pos+': '+b.matches.toLocaleString("ru-RU")+' матчей, винрейт '+String(b.wr).replace(".",",")+'%, рейтинг D2PT '+b.rating+'/100</span></div>';
+    } else if(b.kind==="tpl"){
+      html += '<div class="src tpl" style="--n:'+(n++)+'"><span class="badge">Типичная для позиции</span>'+
+        '<span>Для этого героя точной сборки в сайте нет: ядро и нейтралки типичны для позиции '+b.pos+', подробности на <a href="'+d2ptUrl(b.hero)+'" target="_blank" rel="noopener noreferrer">D2PT</a>.</span></div>';
+    } else {
+      html += '<h3 class="chaostitle" style="--n:'+(n++)+'">'+esc(b.title)+'</h3>';
+    }
+
+    if(b.kind==="chaos"){
+      html += section(n++,"Стартовые предметы","",'',list(b.start.map(function(x){return itemHTML(x)})));
+      html += section(n++,"Предметы","купи в таком порядке",'core',list(b.items.map(function(x,i){return itemHTML(x,{meta:"№"+(i+1)})}).concat([itemHTML(b.boots,{meta:"ботинки"})])));
+      html += section(n++,"Нейтральные предметы","со случайными улучшениями",'',neutralsHTML(b.neutrals));
+      html += section(n++,"Прокачка","первые 10 уровней, Q W E и ультимейт R",'',
+        '<div class="skills">'+b.skills.map(function(k,i){return '<div class="sk rk'+(k==="R"?' ult':'')+'"><b>'+(i+1)+'</b>'+k+'</div>'}).join("")+'</div>');
+      html += section(n++,"Таланты","",'',
+        '<div class="tal">'+b.talents.map(function(t){return '<div><b>'+t[0]+'</b><span>'+t[1]+'</span></div>'}).join("")+'</div>');
+      html += section(n++,"Правило безумия","",'','<div class="quest chaos">'+esc(b.rule)+'</div>');
+    } else {
+      html += section(n++,"Стартовые предметы","",'',list(b.start.map(function(x){return itemHTML(x)})));
+      html += section(n++,"Ядро сборки","по порядку, среднее время покупки",'core',
+        list(b.core.map(function(x){return itemHTML(x[0],{meta:"~"+x[1]+" мин"})})));
+      if(b.kind==="pro"){
+        html += section(n++,"Ситуативно","доля матчей с покупкой",'situ',
+          list(b.flex.map(function(x){return itemHTML(x[0],{meta:x[1]+"%"})})));
+      } else {
+        html += section(n++,"Ситуативно","что обычно докупают",'situ',list(b.flex.map(function(x){return itemHTML(x)})));
+      }
+      html += section(n++,"Нейтральные предметы","самые частые по тирам",'',neutralsHTML(b.neutrals));
+      if(b.skills){
+        var lastSeen = {};
+        html += section(n++,"Прокачка","первые 10 уровней",'',
+          '<div class="skills">'+b.skills.map(function(k,i){
+            var ult = (i===5);
+            return '<div class="sk'+(ult?' ult':'')+'"><b>'+(i+1)+'</b>'+esc(k)+'</div>';
+          }).join("")+'</div>');
+        html += section(n++,"Таланты","самый частый выбор",'',
+          '<div class="tal">'+b.talents.map(function(t){return '<div><b>'+t[0]+'</b><span>'+esc(t[1])+'</span><em>'+t[2]+'% выбирают</em></div>'}).join("")+'</div>');
+      }
+      html += section(n++,"Бонус-задание","",'','<div class="quest">'+esc(b.quest)+'</div>');
+    }
+    el.innerHTML = html;
+    el.classList.remove("reveal");
+    if(animate && !reduce){ void el.offsetWidth; el.classList.add("reveal"); }
+  }
+
+  /* ================= история и сохранения ================= */
+  function renderHistory(){
+    var ul = $("hist");
+    if(!history.length){ ul.innerHTML = '<li class="none">Пока пусто. Первый бросок за тобой.</li>'; return; }
+    ul.innerHTML = history.map(function(r,i){
+      return '<li><button type="button" data-i="'+i+'" style="--c:'+ATTR[r.attr].css+'">'+esc(r.name)+' · п.'+r.pos+(r.build.kind==="chaos"?' · хаос':'')+'</button></li>';
+    }).join("");
+  }
+  function renderSaved(){
+    var ul = $("saved");
+    $("clearSaved").hidden = !saved.length;
+    if(!saved.length){ ul.innerHTML = '<li class="none">Нажми «Сохранить сборку» на карточке героя, и она появится здесь.</li>'; return; }
+    ul.innerHTML = saved.map(function(r,i){
+      var d = new Date(r.ts);
+      var kind = r.build.kind==="pro" ? "D2PT" : r.build.kind==="tpl" ? "типовая" : "хаос";
+      return '<li style="--c:'+ATTR[r.attr].css+'"><div class="sn"><b>'+esc(r.name)+'</b><small>позиция '+r.pos+' · '+kind+' · '+d.toLocaleDateString("ru-RU")+'</small></div>'+
+        '<button type="button" data-a="open" data-i="'+i+'">Открыть</button>'+
+        '<button type="button" data-a="copy" data-i="'+i+'">Скопировать</button>'+
+        '<button type="button" class="del" data-a="del" data-i="'+i+'" aria-label="Удалить сборку '+esc(r.name)+'">Удалить</button></li>';
+    }).join("");
+  }
+  function openSnapshot(r){
+    var h = BYNAME[r.name]; if(!h || busy) return;
+    current = {hero:h,pos:r.pos,build:r.build};
+    showHero(h,r.pos,false); showBuild(r.build,true); enableActions();
+    window.scrollTo({top:0,behavior:reduce?"auto":"smooth"});
+  }
+  $("hist").addEventListener("click",function(e){
+    var b = e.target.closest("button[data-i]"); if(!b) return;
+    openSnapshot(history[+b.getAttribute("data-i")]);
+  });
+  $("saved").addEventListener("click",function(e){
+    var b = e.target.closest("button[data-a]"); if(!b) return;
+    var i = +b.getAttribute("data-i"), a = b.getAttribute("data-a"), r = saved[i];
+    if(!r) return;
+    if(a==="open") openSnapshot(r);
+    if(a==="copy") copyText(textFor(r.name,r.pos,r.build));
+    if(a==="del"){
+      saved.splice(i,1); store("dota-saved-builds-v1",saved); renderSaved(); updateSaveUI(); toast("Сборка удалена");
+    }
+  });
+  var clearArmed = null;
+  $("clearSaved").addEventListener("click",function(){
+    var b = this;
+    if(!clearArmed){
+      b.textContent = "Точно удалить всё?";
+      clearArmed = setTimeout(function(){ clearArmed=null; b.textContent="Очистить всё"; },4000);
+      return;
+    }
+    clearTimeout(clearArmed); clearArmed = null; b.textContent = "Очистить всё";
+    saved = []; store("dota-saved-builds-v1",saved); renderSaved(); updateSaveUI(); toast("Все сборки удалены");
+  });
+
+  function sameBuild(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
+  function savedIndex(){
+    if(!current) return -1;
+    for(var i=0;i<saved.length;i++){
+      if(saved[i].name===current.hero.name && saved[i].pos===current.pos && sameBuild(saved[i].build,current.build)) return i;
+    }
+    return -1;
+  }
+  function updateSaveUI(){
+    var on = savedIndex()>=0;
+    var b = $("saveBtn");
+    b.setAttribute("aria-pressed",on?"true":"false");
+    b.textContent = on ? "Сохранено" : "Сохранить сборку";
+  }
+  $("saveBtn").addEventListener("click",function(){
+    if(!current) return;
+    var i = savedIndex();
+    if(i>=0){
+      saved.splice(i,1); toast("Убрано из «Моих сборок»");
+    } else {
+      saved.unshift({name:current.hero.name,attr:current.hero.attr,pos:current.pos,build:current.build,ts:Date.now()});
+      saved = saved.slice(0,50); toast("Сборка сохранена");
+    }
+    store("dota-saved-builds-v1",saved); renderSaved(); updateSaveUI();
+  });
+
+  function pushHistory(){
+    history.unshift({name:current.hero.name,attr:current.hero.attr,pos:current.pos,build:current.build});
+    history = history.slice(0,10);
+    store("dota-roll-history-v2",history);
+    renderHistory();
+  }
+
+  /* ================= закрепление и выбор героя ================= */
+  function updatePinUI(){
+    var u = $("unpin");
+    if(pinned){ u.hidden=false; u.textContent = "Герой: "+pinned.name+"  ✕"; u.setAttribute("aria-label","Открепить героя "+pinned.name); }
+    else { u.hidden = true; }
+    var pb = $("pinBtn");
+    var on = !!pinned && current && pinned.name===current.hero.name;
+    pb.setAttribute("aria-pressed",on?"true":"false");
+    pb.textContent = on ? "Герой закреплён" : "Оставить героя";
+  }
+  $("unpin").addEventListener("click",function(){ pinned=null; updatePinUI(); setStatus("Герой откреплён."); });
+  $("pinBtn").addEventListener("click",function(){
+    if(!current) return;
+    if(pinned && pinned.name===current.hero.name){ pinned=null; toast("Герой откреплён"); }
+    else { pinned=current.hero; exactOnly=false; $("exact").setAttribute("aria-pressed","false"); toast("Следующие броски: "+pinned.name); }
+    updatePinUI();
+  });
+
+  var dlg = $("dlg");
+  function renderPicker(q){
+    q = (q||"").trim().toLowerCase();
+    var html = "", any = false;
+    ["s","a","i","u"].forEach(function(k){
+      var hs = HEROES.filter(function(h){return h.attr===k && (!q || h.name.toLowerCase().indexOf(q)>=0)});
+      if(!hs.length) return;
+      any = true;
+      html += '<div class="dgroup"><h4 style="--c:'+ATTR[k].css+'"><i></i>'+ATTR[k].name+'</h4><div class="dgrid">'+
+        hs.map(function(h){
+          return '<button type="button" class="pick" style="--c:'+ATTR[k].css+'" data-n="'+esc(h.name)+'"><span class="glyph" style="--h:'+hue(h.name)+'">'+ini(h.name)+'</span><span>'+esc(h.name)+'</span>'+(PRO[h.name]?'<em title="Есть точная сборка D2PT">★</em>':'')+'</button>';
+        }).join("")+'</div></div>';
+    });
+    $("dbody").innerHTML = any ? html : '<p class="dempty">Такого героя нет. Проверь написание на английском.</p>';
+  }
+  $("pickBtn").addEventListener("click",function(){
+    renderPicker(""); $("q").value="";
+    if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+    $("q").focus();
+  });
+  $("q").addEventListener("input",function(){renderPicker(this.value)});
+  $("q").addEventListener("keydown",function(e){
+    if(e.key==="Enter"){
+      e.preventDefault();
+      var first = $("dbody").querySelector("button[data-n]");
+      if(first) first.click();
+    }
+  });
+  $("dbody").addEventListener("click",function(e){
+    var b = e.target.closest("button[data-n]"); if(!b) return;
+    pinned = BYNAME[b.getAttribute("data-n")];
+    exactOnly = false; $("exact").setAttribute("aria-pressed","false");
+    if(dlg.close) dlg.close(); else dlg.removeAttribute("open");
+    updatePinUI();
+    spin();
+  });
+  dlg.addEventListener("click",function(e){ if(e.target===dlg && dlg.close) dlg.close(); });
+
+  /* ================= броски ================= */
+  function enableActions(){
+    $("rebuild").disabled = !current || busy;
+    $("rebuild").hidden = !!(current && current.build.kind==="pro");
+    $("copy").disabled = !current || busy;
+    $("spin").disabled = busy;
+  }
+  function setStatus(t){ $("status").textContent = t; }
+
+  function land(final,pos){
+    var build = genBuild(final,pos);
+    current = {hero:final,pos:pos,build:build};
+    showHero(final,pos,false);
+    showBuild(build,true);
+    busy = false; enableActions(); pushHistory(); updateSaveUI();
+    if(build.kind==="tpl") setStatus("Для "+final.name+" нет встроенной точной сборки D2PT: показано типичное ядро позиции.");
+    else setStatus("");
+  }
+
+  function spin(){
+    if(busy) return;
+    var final, p;
+    if(pinned){
+      final = pinned;
+    } else {
+      p = pool();
+      if(!p.length){ setStatus("Под такие фильтры героев нет. Сними одну из отметок."); return; }
+      final = pick(p);
+      if(p.length>1 && current){ var guard=0; while(final===current.hero && guard++<20){ final = pick(p); } }
+    }
+    setStatus("");
+    busy = true; enableActions();
+    var pos = choosePos(final);
+
+    if(reduce || pinned){ 
+      if(pinned && !reduce){
+        showHero(final,0,true,"Подбираем сборку…");
+        setTimeout(function(){land(final,pos)},420);
+      } else land(final,pos);
+      return;
+    }
+    $("build").classList.remove("chaos");
+    $("build").innerHTML = '<div class="empty"><div><b>Собираем билд…</b><p>Сначала герой, потом всё остальное.</p></div></div>';
+    var ticks = 24, i = 0, msg = pick(SPIN_MSG);
+    (function step(){
+      if(i>=ticks){ land(final,pos); return; }
+      showHero(pick(HEROES),0,true,msg);
+      i++;
+      setTimeout(step, 40 + i*i*0.25);
+    })();
+  }
+
+  function rebuild(){
+    if(!current || busy) return;
+    if(current.build.kind==="pro"){ toast("У точной сборки D2PT один вариант"); return; }
+    current.build = genBuild(current.hero,current.pos);
+    showBuild(current.build,true);
+    history[0] = {name:current.hero.name,attr:current.hero.attr,pos:current.pos,build:current.build};
+    store("dota-roll-history-v2",history);
+    renderHistory(); updateSaveUI();
+  }
+
+  /* ================= копирование ================= */
+  function toast(t){
+    var el = $("toast"); el.textContent = t; el.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(function(){el.classList.remove("show")},1900);
+  }
+  function textFor(name,pos,b){
+    var h = BYNAME[name];
+    var L = [name+(h?" ("+ATTR[h.attr].name+")":"")+", позиция "+pos+" · "+POS[pos]];
+    if(b.kind==="chaos"){
+      L.push("Режим: Хаос — "+b.title);
+      L.push("Старт: "+b.start.join(", "));
+      L.push("Предметы по порядку: "+b.items.concat([b.boots]).join(" → "));
+      L.push("Нейтралки: "+b.neutrals.map(function(x,i){return "T"+(i+1)+" "+x[0]+" ("+x[1]+")"}).join(", "));
+      L.push("Прокачка: "+b.skills.join(" "));
+      L.push("Таланты: "+b.talents.map(function(t){return t[0]+" "+t[1].toLowerCase()}).join(", "));
+      L.push("Правило: "+b.rule);
+    } else {
+      L.push(b.kind==="pro" ? "Источник: D2PT, патч 7.41f" : "Типичная сборка позиции (по данным D2PT 7.41f)");
+      L.push("Старт: "+b.start.join(", "));
+      L.push("Ядро: "+b.core.map(function(x){return x[0]+" (~"+x[1]+" мин)"}).join(" → "));
+      L.push("Ситуативно: "+b.flex.map(function(x){return Array.isArray(x)?x[0]+" "+x[1]+"%":x}).join(", "));
+      L.push("Нейтралки: "+b.neutrals.map(function(x,i){return "T"+(i+1)+" "+x[0]+" ("+x[1]+")"}).join(", "));
+      if(b.skills){
+        L.push("Прокачка: "+b.skills.join(" → "));
+        L.push("Таланты: "+b.talents.map(function(t){return t[0]+": "+t[1]}).join("; "));
+      }
+      L.push("Задание: "+b.quest);
+    }
+    return L.join("\n");
+  }
+  function copyText(txt){
+    function fallback(){
+      try{
+        var ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand("copy"); document.body.removeChild(ta);
+        toast(ok?"Скопировано":"Не удалось скопировать");
+      }catch(e){ toast("Не удалось скопировать"); }
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){toast("Скопировано")},fallback);
+    } else fallback();
+  }
+
+  /* ================= тема, клавиши, старт ================= */
+  $("theme").addEventListener("click",function(){
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-theme")
+      ? root.getAttribute("data-theme")==="dark"
+      : !(window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches);
+    root.setAttribute("data-theme", dark?"light":"dark");
+  });
+  document.addEventListener("keydown",function(e){
+    if(e.code!=="Space" || dlg.open) return;
+    var t = e.target && e.target.tagName;
+    if(t==="INPUT"||t==="BUTTON"||t==="TEXTAREA"||t==="SELECT"||t==="A") return;
+    e.preventDefault(); spin();
+  });
+
+  $("spin").addEventListener("click",spin);
+  $("rebuild").addEventListener("click",rebuild);
+  $("copy").addEventListener("click",function(){ if(current) copyText(textFor(current.hero.name,current.pos,current.build)); });
+
+  drawSigil("");
+  renderHistory();
+  renderSaved();
+  setMode("meta");
+})();
+</script>
+</body>
+</html>
