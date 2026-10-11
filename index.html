@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Жребий Доты — случайный герой и сборка</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Russo+One&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#131c26; --panel:#1c2937; --panel2:#233344; --line:#364b60;
+  --text:#ebe5d6; --muted:#9aa8b6; --gold:#e3b45c; --gold-ink:#241705;
+  --s:#e8624a; --a:#55bd72; --i:#4fa6ee; --u:#bb8de6;
+  --accent:var(--gold);
+  --display:"Russo One","Arial Black",Impact,sans-serif;
+  --body:"Golos Text","Segoe UI",Roboto,Arial,sans-serif;
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#e6ebef; --panel:#ffffff; --panel2:#eef2f5; --line:#c3cfda;
+    --text:#1a2530; --muted:#566676; --gold:#b67d14; --gold-ink:#241705;
+    --s:#c9432c; --a:#2f8f4b; --i:#1f78c8; --u:#8a52bd;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#e6ebef; --panel:#ffffff; --panel2:#eef2f5; --line:#c3cfda;
+  --text:#1a2530; --muted:#566676; --gold:#b67d14; --gold-ink:#241705;
+  --s:#c9432c; --a:#2f8f4b; --i:#1f78c8; --u:#8a52bd;
+}
+:root[data-theme="dark"]{
+  --bg:#131c26; --panel:#1c2937; --panel2:#233344; --line:#364b60;
+  --text:#ebe5d6; --muted:#9aa8b6; --gold:#e3b45c;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; min-height:100%;
+  background:
+    radial-gradient(900px 520px at 15% -8%, color-mix(in srgb,var(--accent) 20%,transparent), transparent 70%),
+    radial-gradient(700px 480px at 100% 100%, color-mix(in srgb,var(--accent) 10%,transparent), transparent 70%),
+    var(--bg);
+  background-color:var(--bg);
+  color:var(--text);
+  font-family:var(--body); font-size:16px; line-height:1.5;
+  transition:background .5s;
+}
+body[data-attr="s"]{--accent:var(--s)}
+body[data-attr="a"]{--accent:var(--a)}
+body[data-attr="i"]{--accent:var(--i)}
+body[data-attr="u"]{--accent:var(--u)}
+
+.wrap{max-width:1120px;margin:0 auto;padding:28px 20px 56px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:26px}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(2rem,5vw,3.2rem);line-height:1;margin:0;letter-spacing:.01em}
+.sub{margin:8px 0 0;color:var(--muted);max-width:46ch}
+.theme{
+  font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);
+  border-radius:999px;padding:8px 14px;cursor:pointer;
+}
+.theme:hover{border-color:var(--gold)}
+
+/* filters */
+.filters{display:grid;gap:14px;margin-bottom:22px}
+.fgroup{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.flabel{color:var(--muted);font-size:.9rem;min-width:84px}
+.chip{
+  font:inherit;font-size:.92rem;color:var(--text);background:var(--panel);
+  border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:background .15s,border-color .15s;
+}
+.chip i{width:10px;height:10px;border-radius:50%;background:var(--c,var(--gold));display:inline-block}
+.chip:hover{border-color:var(--c,var(--gold))}
+.chip[aria-pressed="true"]{
+  background:color-mix(in srgb,var(--c,var(--gold)) 22%,var(--panel));
+  border-color:var(--c,var(--gold));
+}
+.chip:focus-visible,.btn:focus-visible,.theme:focus-visible,.hist button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* stage */
+.stage{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:20px;align-items:stretch}
+.card{
+  background:var(--panel);border:1px solid var(--line);border-radius:6px;
+  position:relative;overflow:hidden;
+}
+.hero{
+  padding:26px 24px 24px;display:flex;flex-direction:column;min-height:460px;
+  border-top:4px solid var(--accent);
+  background:
+    linear-gradient(180deg,color-mix(in srgb,var(--accent) 14%,var(--panel)) 0%,var(--panel) 60%);
+}
+.mono{
+  position:relative;flex:1;display:grid;place-items:center;min-height:230px;
+}
+.mono svg.sigil{position:absolute;inset:0;width:100%;height:100%;opacity:.95}
+.mono .letters{
+  position:relative;font-family:var(--display);font-size:clamp(5rem,13vw,8.5rem);line-height:1;
+  color:transparent;-webkit-text-stroke:2px var(--accent);letter-spacing:.02em;
+  text-shadow:0 0 40px color-mix(in srgb,var(--accent) 45%,transparent);
+  user-select:none;
+}
+.hero.spinning .letters{filter:blur(1.5px);opacity:.8}
+.hname{
+  font-family:var(--display);font-size:clamp(1.7rem,3.4vw,2.4rem);line-height:1.08;margin:6px 0 4px;
+  overflow-wrap:anywhere;
+}
+.hmeta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--muted);font-size:.95rem}
+.tag{
+  border:1px solid var(--accent);color:var(--text);border-radius:4px;padding:2px 10px;font-size:.88rem;
+  background:color-mix(in srgb,var(--accent) 16%,transparent);
+}
+.tag.pos{border-color:var(--line);background:transparent;color:var(--muted)}
+.tag.pos.on{border-color:var(--gold);color:var(--text);background:color-mix(in srgb,var(--gold) 18%,transparent)}
+
+.build{padding:22px 24px 24px;min-height:460px}
+.empty{display:grid;place-items:center;text-align:center;height:100%;min-height:380px;color:var(--muted);padding:12px}
+.empty b{display:block;color:var(--text);font-family:var(--display);font-weight:400;font-size:1.4rem;margin-bottom:8px}
+.empty p{margin:0;max-width:34ch}
+.sec{margin-bottom:18px}
+.sec:last-child{margin-bottom:0}
+.sec h3{
+  margin:0 0 8px;font-size:.95rem;font-weight:600;color:var(--muted);
+  display:flex;align-items:baseline;gap:10px;
+}
+.sec h3 small{font-weight:400;font-size:.82rem;opacity:.85}
+ul.items{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
+.item{
+  display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+  border-radius:5px;padding:6px 10px 6px 6px;min-width:0;
+}
+.glyph{
+  flex:none;width:38px;height:38px;border-radius:4px;display:grid;place-items:center;
+  font-family:var(--display);font-size:.95rem;letter-spacing:.02em;
+  background:linear-gradient(145deg,hsl(var(--h) 38% 34%),hsl(var(--h) 42% 20%));
+  color:hsl(var(--h) 70% 86%);border:1px solid hsl(var(--h) 40% 46%);
+}
+.iname{font-size:.92rem;line-height:1.2;overflow-wrap:anywhere}
+.core .item{border-color:color-mix(in srgb,var(--gold) 55%,var(--line))}
+.situ .item{opacity:.85}
+.tal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.tal div{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:8px 6px;text-align:center}
+.tal b{display:block;font-family:var(--display);font-weight:400;font-size:1.05rem;color:var(--gold)}
+.tal span{font-size:.85rem;color:var(--muted)}
+.neu{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:8px}
+.neu .item .glyph{background:linear-gradient(145deg,hsl(var(--h) 25% 30%),hsl(var(--h) 30% 18%));font-size:.8rem}
+.tier{font-size:.76rem;color:var(--muted);display:block}
+.quest{
+  margin-top:4px;padding:12px 14px;border-left:3px solid var(--gold);background:color-mix(in srgb,var(--gold) 10%,transparent);
+  border-radius:0 5px 5px 0;font-size:.95rem
+}
+.quest b{font-weight:600}
+
+.build.reveal .sec{animation:rise .45s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--n) * 70ms)}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* actions */
+.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:22px 0 8px}
+.btn{
+  font:inherit;cursor:pointer;border:0;color:var(--text);
+  background:var(--panel2);box-shadow:inset 0 0 0 1px var(--line);
+  padding:12px 20px;border-radius:5px;transition:box-shadow .15s,transform .1s;
+}
+.btn:hover{box-shadow:inset 0 0 0 1px var(--gold)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn.main{
+  font-family:var(--display);font-size:1.25rem;letter-spacing:.02em;
+  color:var(--gold-ink);padding:16px 38px;
+  background:linear-gradient(180deg,#f3cd7e,#d9a043);box-shadow:none;
+  clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+}
+.btn.main:hover{background:linear-gradient(180deg,#f8d98f,#e3aa4d);box-shadow:none}
+.btn.main:focus-visible{outline-offset:-7px;outline-color:var(--gold-ink)}
+.status{color:var(--muted);font-size:.92rem;min-height:1.4em;margin:0 0 6px}
+
+/* history */
+.hist-wrap{margin-top:28px}
+.hist-wrap h2{font-size:1rem;font-weight:600;color:var(--muted);margin:0 0 10px}
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.hist button{
+  font:inherit;font-size:.9rem;color:var(--text);cursor:pointer;background:var(--panel);
+  border:1px solid var(--line);border-left:4px solid var(--c);border-radius:4px;padding:6px 12px;
+}
+.hist button:hover{border-color:var(--c)}
+.hist .none{color:var(--muted);font-size:.92rem}
+.foot{margin-top:34px;color:var(--muted);font-size:.82rem;max-width:70ch}
+.toast{
+  position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);
+  background:var(--text);color:var(--bg);padding:10px 18px;border-radius:999px;font-size:.92rem;
+  opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:820px){
+  .stage{grid-template-columns:minmax(0,1fr)}
+  .hero,.build{min-height:0}
+  .mono{min-height:190px}
+  .flabel{width:100%}
+  .btn.main{width:100%}
+  .tal{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body data-attr="">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Жребий Доты</h1>
+      <p class="sub">Выпадает герой, позиция, предметы и таланты. Остаётся только сыграть.</p>
+    </div>
+    <button class="theme" id="theme" type="button">Тема</button>
+  </header>
+
+  <section class="filters" aria-label="Фильтры">
+    <div class="fgroup" id="fa"><span class="flabel">Атрибут</span></div>
+    <div class="fgroup" id="fp"><span class="flabel">Позиция</span></div>
+  </section>
+
+  <main class="stage" id="stage">
+    <article class="card hero" id="hero" aria-live="polite">
+      <div class="mono">
+        <svg class="sigil" id="sigil" viewBox="0 0 300 300" aria-hidden="true"></svg>
+        <div class="letters" id="letters">?</div>
+      </div>
+      <div class="hname" id="hname">Кто сегодня?</div>
+      <div class="hmeta" id="hmeta"><span>Нажми кнопку, и судьба решит.</span></div>
+    </article>
+
+    <section class="card build" id="build" aria-label="Сборка">
+      <div class="empty"><div><b>Здесь появится сборка</b><p>Стартовые предметы, ядро, ботинки, нейтралки и таланты под выпавшую позицию.</p></div></div>
+    </section>
+  </main>
+
+  <div class="actions">
+    <button class="btn main" id="spin" type="button">Крутить</button>
+    <button class="btn" id="rebuild" type="button" disabled>Другая сборка</button>
+    <button class="btn" id="copy" type="button" disabled>Скопировать</button>
+  </div>
+  <p class="status" id="status" role="status"></p>
+
+  <section class="hist-wrap">
+    <h2>Последние броски</h2>
+    <ul class="hist" id="hist"></ul>
+  </section>
+
+  <p class="foot">Герои и предметы выбираются случайно из встроенных списков. Позиции у героев приблизительные, а пулы нейтральных предметов могут отличаться от текущего патча.</p>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- data ---------- */
+  var ATTR = {
+    s:{name:"Сила",css:"var(--s)"},
+    a:{name:"Ловкость",css:"var(--a)"},
+    i:{name:"Интеллект",css:"var(--i)"},
+    u:{name:"Универсал",css:"var(--u)"}
+  };
+  var POS = {1:"Керри",2:"Мид",3:"Оффлейн",4:"Софт-саппорт",5:"Хард-саппорт"};
+
+  var RAW =
+  "Abaddon|s|45;Alchemist|s|1;Axe|s|3;Beastmaster|s|3;Brewmaster|s|3;Bristleback|s|3;Centaur Warrunner|s|3;Chaos Knight|s|1;Clockwerk|s|34;Dawnbreaker|s|3;Doom|s|3;Dragon Knight|s|23;Earth Spirit|s|4;Earthshaker|s|4;Elder Titan|s|4;Huskar|s|2;Kunkka|s|23;Legion Commander|s|3;Lifestealer|s|1;Lycan|s|13;Mars|s|3;Night Stalker|s|3;Ogre Magi|s|45;Omniknight|s|35;Primal Beast|s|3;Pudge|s|4;Sand King|s|34;Slardar|s|3;Spirit Breaker|s|34;Sven|s|1;Tidehunter|s|3;Timbersaw|s|3;Tiny|s|24;Tusk|s|4;Underlord|s|3;Undying|s|5;Wraith King|s|1;" +
+  "Anti-Mage|a|1;Arc Warden|a|12;Bloodseeker|a|1;Bounty Hunter|a|4;Broodmother|a|3;Clinkz|a|1;Drow Ranger|a|1;Ember Spirit|a|2;Faceless Void|a|1;Gyrocopter|a|1;Hoodwink|a|4;Juggernaut|a|1;Kez|a|1;Lone Druid|a|3;Luna|a|1;Medusa|a|1;Meepo|a|2;Mirana|a|4;Monkey King|a|14;Morphling|a|1;Naga Siren|a|1;Nyx Assassin|a|4;Pangolier|a|3;Phantom Assassin|a|1;Phantom Lancer|a|1;Razor|a|13;Riki|a|1;Shadow Fiend|a|2;Slark|a|1;Sniper|a|12;Spectre|a|1;Templar Assassin|a|2;Terrorblade|a|1;Troll Warlord|a|1;Ursa|a|1;Vengeful Spirit|a|5;Venomancer|a|34;Viper|a|23;Weaver|a|1;" +
+  "Ancient Apparition|i|5;Crystal Maiden|i|5;Dazzle|i|5;Death Prophet|i|2;Disruptor|i|45;Enchantress|i|4;Grimstroke|i|45;Jakiro|i|5;Keeper of the Light|i|2;Leshrac|i|2;Lich|i|5;Lina|i|12;Lion|i|45;Muerta|i|1;Nature's Prophet|i|14;Necrophos|i|23;Oracle|i|5;Outworld Destroyer|i|2;Puck|i|2;Pugna|i|2;Queen of Pain|i|2;Ringmaster|i|45;Rubick|i|4;Shadow Demon|i|45;Shadow Shaman|i|5;Silencer|i|45;Skywrath Mage|i|45;Storm Spirit|i|2;Techies|i|45;Tinker|i|2;Visage|i|3;Warlock|i|5;Winter Wyvern|i|5;Witch Doctor|i|5;Zeus|i|2;" +
+  "Bane|u|5;Batrider|u|3;Chen|u|5;Dark Seer|u|3;Dark Willow|u|4;Enigma|u|3;Invoker|u|2;Io|u|5;Magnus|u|34;Marci|u|3;Phoenix|u|4;Snapfire|u|45;Void Spirit|u|2;Windranger|u|24";
+
+  var HEROES = RAW.split(";").map(function(r){
+    var p = r.split("|");
+    return {name:p[0], attr:p[1], pos:p[2].split("").map(Number)};
+  });
+
+  var BOOTS_ALL = ["Power Treads","Phase Boots","Arcane Boots","Tranquil Boots","Boots of Travel"];
+
+  var POOLS = {
+    1:{
+      start:["Tango","Quelling Blade","Slippers of Agility","Healing Salve","Iron Branch","Faerie Fire","Enchanted Mango","Orb of Venom"],
+      early:["Magic Wand","Wraith Band","Bracer","Ring of Aquila","Hand of Midas","Orb of Corrosion"],
+      boots:["Power Treads","Phase Boots","Boots of Travel"],
+      core:["Battle Fury","Black King Bar","Manta Style","Butterfly","Daedalus","Monkey King Bar","Satanic","Eye of Skadi","Radiance","Desolator","Mjollnir","Abyssal Blade","Bloodthorn","Maelstrom","Diffusal Blade","Sange and Yasha","Silver Edge","Disperser","Revenant's Brooch","Swift Blink","Aghanim's Scepter","Nullifier","Linken's Sphere","Shadow Blade","Echo Sabre","Moon Shard","Hurricane Pike","Heaven's Halberd","Assault Cuirass","Kaya and Sange","Blink Dagger"]
+    },
+    2:{
+      start:["Tango","Faerie Fire","Healing Salve","Mantle of Intelligence","Iron Branch","Bottle","Enchanted Mango","Clarity"],
+      early:["Bottle","Magic Wand","Null Talisman","Soul Ring","Urn of Shadows","Hand of Midas"],
+      boots:["Power Treads","Phase Boots","Arcane Boots","Boots of Travel"],
+      core:["Blink Dagger","Black King Bar","Aghanim's Scepter","Kaya and Sange","Shiva's Guard","Eul's Scepter of Divinity","Orchid Malevolence","Bloodthorn","Dagon","Ethereal Blade","Scythe of Vyse","Octarine Core","Refresher Orb","Veil of Discord","Meteor Hammer","Aether Lens","Linken's Sphere","Rod of Atos","Gleipnir","Nullifier","Revenant's Brooch","Witch Blade","Parasma","Wind Waker","Hurricane Pike","Force Staff","Shadow Blade","Sange and Yasha","Overwhelming Blink","Arcane Blink"]
+    },
+    3:{
+      start:["Tango","Quelling Blade","Healing Salve","Gauntlets of Strength","Iron Branch","Stout Shield","Orb of Venom","Faerie Fire"],
+      early:["Magic Wand","Bracer","Soul Ring","Vanguard","Urn of Shadows","Orb of Corrosion"],
+      boots:["Phase Boots","Power Treads","Arcane Boots","Tranquil Boots"],
+      core:["Blink Dagger","Black King Bar","Pipe of Insight","Crimson Guard","Blade Mail","Heart of Tarrasque","Assault Cuirass","Shiva's Guard","Heaven's Halberd","Lotus Orb","Eternal Shroud","Radiance","Mekansm","Guardian Greaves","Force Staff","Veil of Discord","Aghanim's Scepter","Kaya and Sange","Sange and Yasha","Desolator","Echo Sabre","Harpoon","Bloodstone","Spirit Vessel","Solar Crest","Overwhelming Blink","Swift Blink","Refresher Orb"]
+    },
+    4:{
+      start:["Tango","Blood Grenade","Observer Ward","Sentry Ward","Clarity","Faerie Fire","Enchanted Mango","Healing Salve"],
+      early:["Magic Wand","Urn of Shadows","Null Talisman","Ring of Basilius","Wind Lace","Soul Ring","Drum of Endurance"],
+      boots:["Arcane Boots","Tranquil Boots","Phase Boots","Power Treads"],
+      core:["Blink Dagger","Force Staff","Glimmer Cape","Mekansm","Spirit Vessel","Solar Crest","Rod of Atos","Aether Lens","Ghost Scepter","Pipe of Insight","Lotus Orb","Aghanim's Scepter","Orchid Malevolence","Eul's Scepter of Divinity","Guardian Greaves","Veil of Discord","Shadow Blade","Holy Locket","Octarine Core","Gleipnir","Nullifier","Wind Waker","Meteor Hammer","Medallion of Courage"]
+    },
+    5:{
+      start:["Tango","Observer Ward","Sentry Ward","Clarity","Healing Salve","Enchanted Mango","Blood Grenade","Smoke of Deceit"],
+      early:["Magic Wand","Ring of Basilius","Urn of Shadows","Wind Lace","Soul Ring","Bracer"],
+      boots:["Tranquil Boots","Arcane Boots"],
+      core:["Glimmer Cape","Force Staff","Mekansm","Guardian Greaves","Lotus Orb","Pipe of Insight","Spirit Vessel","Solar Crest","Aether Lens","Aghanim's Scepter","Ghost Scepter","Blink Dagger","Holy Locket","Rod of Atos","Medallion of Courage","Eul's Scepter of Divinity","Octarine Core","Wind Waker","Refresher Orb","Veil of Discord"]
+    }
+  };
+
+  var SITU = ["Black King Bar","Linken's Sphere","Aeon Disk","Lotus Orb","Eternal Shroud","Nullifier","Monkey King Bar","Silver Edge","Ghost Scepter","Heaven's Halberd","Blade Mail","Shiva's Guard","Spirit Vessel","Mekansm","Force Staff","Scythe of Vyse","Orchid Malevolence","Abyssal Blade","Refresher Orb","Satanic","Bloodthorn","Gem of True Sight","Divine Rapier","Moon Shard","Crimson Guard","Pipe of Insight","Sentry Ward"];
+
+  var NEUTRAL = [
+    ["Arcane Ring","Broom Handle","Faded Broach","Keen Optic","Ocean Heart","Poor Man's Shield","Royal Jelly","Trusty Shovel"],
+    ["Dragon Scale","Essence Ring","Grove Bow","Imp Claw","Nether Shawl","Philosopher's Stone","Pupil's Gift","Vampire Fangs"],
+    ["Cloak of Flames","Craggy Coat","Enchanted Quiver","Mind Breaker","Quickening Charm","Spider Legs","Titan Sliver","Vindicator's Axe"],
+    ["Spy Gadget","Havoc Hammer","Trickster Cloak","Witchbane","Ninja Gear","Panic Button","Martyr's Plate","Crippling Crossbow"],
+    ["Apex","Book of the Dead","Fallen Sky","Force Boots","Mirror Shield","Pirate Hat","Seer Stone","Spell Prism","Stormcrafter","Giant's Ring"]
+  ];
+
+  var QUESTS = [
+    "Ни одной смерти до 10-й минуты.",
+    "Возьми Рошана до 25-й минуты.",
+    "Играй без Blink Dagger, даже если очень хочется.",
+    "Если всё идёт слишком хорошо, купи Divine Rapier.",
+    "Не возвращайся на базу до 8-й минуты.",
+    "Подбери каждую руну на своей половине карты.",
+    "Убей вражеского героя первым.",
+    "Ни одного сообщения в чат за всю игру.",
+    "Победи, не купив Town Portal Scroll до 15-й минуты.",
+    "Купи ботинки последними из всей сборки.",
+    "Снеси первую вышку раньше 12-й минуты.",
+    "Сходи на гэнг в первые 5 минут."
+  ];
+
+  /* ---------- helpers ---------- */
+  var $ = function(id){return document.getElementById(id)};
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function rnd(n){return Math.floor(Math.random()*n)}
+  function pick(a){return a[rnd(a.length)]}
+  function sample(a,n,exclude){
+    var c = a.filter(function(x){return !exclude || exclude.indexOf(x)<0});
+    for(var i=c.length-1;i>0;i--){var j=rnd(i+1);var t=c[i];c[i]=c[j];c[j]=t}
+    return c.slice(0,n);
+  }
+  function hue(s){var h=0;for(var i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))%360}return h}
+  function ini(name){
+    var w = name.replace(/['’]/g,"").split(/[\s-]+/).filter(Boolean);
+    var s = w.length>1 ? w[0][0]+w[1][0] : name.slice(0,2);
+    return s.toUpperCase();
+  }
+  function itemHTML(name,tier){
+    return '<li class="item" style="--h:'+hue(name)+'"><span class="glyph">'+ini(name)+'</span><span class="iname">'+
+      (tier?'<span class="tier">'+tier+'</span>':'')+name+'</span></li>';
+  }
+
+  /* ---------- state ---------- */
+  var selA = {}, selP = {};
+  var current = null, busy = false, history = [];
+
+  try{
+    var saved = JSON.parse(localStorage.getItem("dota-roll-history")||"[]");
+    if(Array.isArray(saved)) history = saved.slice(0,10);
+  }catch(e){}
+
+  /* ---------- filters ---------- */
+  function makeChip(parent,label,color,onToggle){
+    var b = document.createElement("button");
+    b.type="button"; b.className="chip"; b.setAttribute("aria-pressed","false");
+    if(color) b.style.setProperty("--c",color);
+    b.innerHTML = (color?'<i></i>':'')+label;
+    b.addEventListener("click",function(){
+      var on = b.getAttribute("aria-pressed")!=="true";
+      b.setAttribute("aria-pressed",on?"true":"false");
+      onToggle(on); setStatus("");
+    });
+    parent.appendChild(b);
+  }
+  Object.keys(ATTR).forEach(function(k){
+    makeChip($("fa"),ATTR[k].name,ATTR[k].css,function(on){selA[k]=on});
+  });
+  Object.keys(POS).forEach(function(k){
+    makeChip($("fp"),k+" · "+POS[k],"var(--gold)",function(on){selP[k]=on});
+  });
+
+  function pool(){
+    var as = Object.keys(selA).filter(function(k){return selA[k]});
+    var ps = Object.keys(selP).filter(function(k){return selP[k]}).map(Number);
+    return HEROES.filter(function(h){
+      if(as.length && as.indexOf(h.attr)<0) return false;
+      if(ps.length && !h.pos.some(function(p){return ps.indexOf(p)>=0})) return false;
+      return true;
+    });
+  }
+  function choosePos(h){
+    var ps = Object.keys(selP).filter(function(k){return selP[k]}).map(Number);
+    var opts = ps.length ? h.pos.filter(function(p){return ps.indexOf(p)>=0}) : h.pos;
+    return pick(opts.length?opts:h.pos);
+  }
+
+  /* ---------- build ---------- */
+  function genBuild(pos){
+    var P = POOLS[pos];
+    var start = sample(P.start,4);
+    var early = sample(P.early,2);
+    var boots = pick(P.boots);
+    var core = sample(P.core,3,early.concat([boots]));
+    var situ = sample(SITU,2,core.concat(early,[boots]));
+    var neutral = NEUTRAL.map(function(t){return pick(t)});
+    var talents = [10,15,20,25].map(function(l){return {lvl:l,side:rnd(2)?"Правый":"Левый"}});
+    return {start:start,early:early,boots:boots,core:core,situ:situ,neutral:neutral,talents:talents,quest:pick(QUESTS)};
+  }
+
+  /* ---------- render ---------- */
+  var sigilPaths = {
+    s:'<polygon points="150,14 276,86 276,214 150,286 24,214 24,86" />',
+    a:'<polygon points="150,10 288,150 150,290 12,150" />',
+    i:'<circle cx="150" cy="150" r="136" />',
+    u:'<polygon points="150,12 270,70 288,200 200,288 100,288 12,200 30,70" />',
+    "":'<circle cx="150" cy="150" r="136" />'
+  };
+  function drawSigil(attr){
+    var shape = sigilPaths[attr] || sigilPaths[""];
+    $("sigil").innerHTML =
+      '<g fill="none" stroke="var(--accent)" stroke-width="2" opacity=".55">'+shape+'</g>'+
+      '<g fill="var(--accent)" fill-opacity=".07" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 7" transform="translate(150 150) scale(.82) translate(-150 -150)">'+shape+'</g>';
+  }
+
+  function showHero(h,pos,spinning){
+    document.body.setAttribute("data-attr",h?h.attr:"");
+    $("hero").classList.toggle("spinning",!!spinning);
+    drawSigil(h?h.attr:"");
+    $("letters").textContent = h?ini(h.name):"?";
+    $("hname").textContent = h?h.name:"Кто сегодня?";
+    if(!h || spinning){
+      $("hmeta").innerHTML = spinning ? '<span>Крутим…</span>' : '<span>Нажми кнопку, и судьба решит.</span>';
+      return;
+    }
+    var html = '<span class="tag">'+ATTR[h.attr].name+'</span>';
+    h.pos.forEach(function(p){
+      html += '<span class="tag pos'+(p===pos?' on':'')+'">'+p+' · '+POS[p]+'</span>';
+    });
+    $("hmeta").innerHTML = html;
+  }
+
+  function section(n,title,small,cls,inner){
+    return '<div class="sec '+(cls||'')+'" style="--n:'+n+'"><h3>'+title+(small?'<small>'+small+'</small>':'')+'</h3>'+inner+'</div>';
+  }
+  function showBuild(b,pos,animate){
+    var el = $("build");
+    var list = function(a){return '<ul class="items">'+a.map(function(x){return itemHTML(x)}).join("")+'</ul>'};
+    var html = '';
+    html += section(0,"Стартовые предметы","",'',list(b.start));
+    html += section(1,"Ранняя игра","",'',list(b.early.concat([b.boots])));
+    html += section(2,"Ядро сборки","по порядку покупки",'core',list(b.core));
+    html += section(3,"Ситуативно","если игра потребует",'situ',list(b.situ));
+    html += section(4,"Нейтральные предметы","",'',
+      '<ul class="neu">'+b.neutral.map(function(x,i){return itemHTML(x,"Тир "+(i+1))}).join("")+'</ul>');
+    html += section(5,"Таланты","",'',
+      '<div class="tal">'+b.talents.map(function(t){return '<div><b>'+t.lvl+'</b><span>'+t.side+'</span></div>'}).join("")+'</div>');
+    html += section(6,"Бонус-задание","",'','<div class="quest">'+b.quest+'</div>');
+    el.innerHTML = html;
+    el.classList.remove("reveal");
+    if(animate && !reduce){ void el.offsetWidth; el.classList.add("reveal"); }
+  }
+
+  function renderHistory(){
+    var ul = $("hist");
+    if(!history.length){ ul.innerHTML = '<li class="none">Пока пусто. Первый бросок за тобой.</li>'; return; }
+    ul.innerHTML = history.map(function(r,i){
+      return '<li><button type="button" data-i="'+i+'" style="--c:'+ATTR[r.attr].css+'">'+r.name+' · п.'+r.pos+'</button></li>';
+    }).join("");
+  }
+  $("hist").addEventListener("click",function(e){
+    var b = e.target.closest("button[data-i]"); if(!b || busy) return;
+    var r = history[+b.getAttribute("data-i")];
+    var h = HEROES.filter(function(x){return x.name===r.name})[0];
+    if(!h) return;
+    current = {hero:h,pos:r.pos,build:r.build};
+    showHero(h,r.pos,false); showBuild(r.build,r.pos,true); enableActions();
+    window.scrollTo({top:0,behavior:reduce?"auto":"smooth"});
+  });
+
+  function saveHistory(){
+    history.unshift({name:current.hero.name,attr:current.hero.attr,pos:current.pos,build:current.build});
+    history = history.slice(0,10);
+    try{ localStorage.setItem("dota-roll-history",JSON.stringify(history)); }catch(e){}
+    renderHistory();
+  }
+
+  function enableActions(){
+    $("rebuild").disabled = !current || busy;
+    $("copy").disabled = !current || busy;
+    $("spin").disabled = busy;
+  }
+  function setStatus(t){ $("status").textContent = t; }
+
+  /* ---------- spin ---------- */
+  function spin(){
+    if(busy) return;
+    var p = pool();
+    if(!p.length){ setStatus("Под такие фильтры героев нет. Сними одну из отметок."); return; }
+    setStatus("");
+    busy = true; enableActions();
+    var final = pick(p);
+    if(p.length>1 && current){ while(final===current.hero){ final = pick(p); } }
+    var pos = choosePos(final);
+
+    function land(){
+      var build = genBuild(pos);
+      current = {hero:final,pos:pos,build:build};
+      showHero(final,pos,false);
+      showBuild(build,pos,true);
+      busy = false; enableActions(); saveHistory();
+    }
+    if(reduce){ land(); return; }
+
+    $("build").innerHTML = '<div class="empty"><div><b>Собираем билд…</b><p>Сначала герой, потом всё остальное.</p></div></div>';
+    var ticks = 24, i = 0;
+    (function step(){
+      if(i>=ticks){ land(); return; }
+      showHero(pick(HEROES),0,true);
+      i++;
+      setTimeout(step, 40 + i*i*0.25);
+    })();
+  }
+
+  function rebuild(){
+    if(!current || busy) return;
+    current.build = genBuild(current.pos);
+    showBuild(current.build,current.pos,true);
+    history[0] = {name:current.hero.name,attr:current.hero.attr,pos:current.pos,build:current.build};
+    try{ localStorage.setItem("dota-roll-history",JSON.stringify(history)); }catch(e){}
+  }
+
+  /* ---------- copy ---------- */
+  function toast(t){
+    var el = $("toast"); el.textContent = t; el.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(function(){el.classList.remove("show")},1800);
+  }
+  function buildText(){
+    var c = current, b = c.build;
+    return [
+      c.hero.name+" ("+ATTR[c.hero.attr].name+"), позиция "+c.pos+" · "+POS[c.pos],
+      "Старт: "+b.start.join(", "),
+      "Ранняя игра: "+b.early.concat([b.boots]).join(", "),
+      "Ядро: "+b.core.join(" → "),
+      "Ситуативно: "+b.situ.join(", "),
+      "Нейтралки: "+b.neutral.map(function(x,i){return "T"+(i+1)+" "+x}).join(", "),
+      "Таланты: "+b.talents.map(function(t){return t.lvl+" "+t.side.toLowerCase()}).join(", "),
+      "Задание: "+b.quest
+    ].join("\n");
+  }
+  function copy(){
+    if(!current) return;
+    var txt = buildText();
+    function fallback(){
+      try{
+        var ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; ta.style.opacity="0";
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand("copy"); document.body.removeChild(ta);
+        toast(ok?"Скопировано":"Не удалось скопировать");
+      }catch(e){ toast("Не удалось скопировать"); }
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){toast("Скопировано")},fallback);
+    } else fallback();
+  }
+
+  /* ---------- theme ---------- */
+  $("theme").addEventListener("click",function(){
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-theme")
+      ? root.getAttribute("data-theme")==="dark"
+      : !(window.matchMedia && matchMedia("(prefers-color-scheme: light)").matches);
+    root.setAttribute("data-theme", dark?"light":"dark");
+  });
+
+  /* ---------- init ---------- */
+  $("spin").addEventListener("click",spin);
+  $("rebuild").addEventListener("click",rebuild);
+  $("copy").addEventListener("click",copy);
+  drawSigil("");
+  renderHistory();
+})();
+</script>
+</body>
+</html>
